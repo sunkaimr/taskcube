@@ -1,0 +1,271 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mysql-enhance-pack
+  name: mysql-enhance-pack
+  namespace: iop-saas-testing
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: mysql-enhance-pack
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: mysql-enhance-pack
+    spec:
+      containers:
+        - name: mysql-enhance-pack
+          image: cowell-images.tencentcloudcr.com/cowellpi/mysql-enhance-pack:v0.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: web
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /mysql-enhance-pack/api/v1/health
+              port: web
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /mysql-enhance-pack/api/v1/health
+              port: web
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+          volumeMounts:
+          - name: tmp
+            mountPath: /var/logs
+            subPathExpr: $(POD_NAME)
+          - name: mysql-enhance-pack-cm
+            mountPath: /opt/config.yaml
+            subPath: config.yaml
+        - name: filebeat
+          image: cowell-images.tencentcloudcr.com/app/cowellpi/filebeat7.5-kafka:v1
+          imagePullPolicy: Always
+          env:
+            - name: KAFKA_IP_1
+              value: 10.8.183.126:9092
+            - name: KAFKA_IP_2
+              value: 10.8.183.127:9092
+            - name: KAFKA_IP_3
+              value: 10.8.183.128:9092
+            - name: ENV
+              value: test
+            - name: KAFKA_TOPIC
+              value: LOGGING_IOP_MYSQL-ENHANCE-PACK
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: tmp
+              mountPath: /var/logs
+              subPathExpr: $(POD_NAME)
+            - name: filebeat-config
+              mountPath: /usr/local/filebeat-7.5.0/filebeat.yml
+              subPath: filebeat.yml
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: mysql-enhance-pack-cm
+          configMap:
+            name: mysql-enhance-pack-cm
+        - name: filebeat-config
+          configMap:
+            name: filebeat-config-mysql-enhance-pack
+            items:
+              - key: filebeat.yml
+                path: filebeat.yml
+      tolerations:
+        - effect: NoSchedule
+          key: OnlyAll
+          operator: Exists
+      imagePullSecrets:
+        - name: cowell-image-dockercfg
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 600
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-enhance-pack-cm
+  namespace: iop-saas-testing
+data:
+  config.yaml: |
+    server:
+      # debug release test
+      ginMode: "release"
+      port: "8080"
+      externalAddr: "http://10.2.7.26:31009"
+    
+    Jwt:
+      # secret 长度必须为16或32或64
+      secret: "abcdefghijklmnop"
+    
+    mysql:
+      host: "10.8.132.242"
+      port: "3306"
+      user: "root"
+      password: "Gaoji_dba.com"
+      dataBase: "mysql-enhance-pack"
+    
+    log:
+      path: "/var/logs/spring-log/log.log"
+      # error warn info debug
+      level: "debug"
+      maxSize: 10
+      maxBackups: 7
+      maxAge: 10
+      compress: false
+    
+    ipaas:
+      url: "https://ipaas.gaojihealth.cn"
+      token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJVVUlEIjoiMTdhMWEyNDgtYjY3ZC00YTgyLTlhNjgtMWU5ZTY1MWY2NzcyIiwiSUQiOjQ2MSwiVXNlcm5hbWUiOiJyZXNvdXJjZV9jZW50ZXIiLCJOaWNrTmFtZSI6Iui1hOa6kOS4reW_gyIsIkF1dGhvcml0eUlkIjoxLCJSb2xlSWQiOm51bGwsIkJ1ZmZlclRpbWUiOjEwMDAsIkF1dGhUeXBlIjoibG9jYWwiLCJleHAiOjU0NjQ3NzU2NTgsImlzcyI6InFtUGx1cyIsIm5iZiI6MTY4Nzg0ODM1NH0.JDkMPVQ45eH9A1Rg4f4COolJLUwJbmBrvfK_Iw9hAsg"
+      #url = "http://ipaas-test.gaojihealth.cn"
+      #token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJVVUlEIjoiNTQzMWM4NjQtNjBiZi00MDUzLWJlMzktOTllN2RiYjJiODY1IiwiSUQiOjQyLCJVc2VybmFtZSI6InJlc291cmNlX2NlbnRlciIsIk5pY2tOYW1lIjoi6LWE5rqQ5Lit5b-DIiwiQXV0aG9yaXR5SWQiOjEsIlJvbGVJZCI6bnVsbCwiQnVmZmVyVGltZSI6MTAwMCwiQXV0aFR5cGUiOiJsb2NhbCIsImV4cCI6NTQ2NTkwNzgyMywiaXNzIjoicW1QbHVzIiwibmJmIjoxNjg4OTgwNTE5fQ.mCogVk9Gt62vUzs3WsvSPe0wH-CmAG_aZYCSuCw-qgk"
+    
+    job:
+      # 一天运行一次：运行策略调度任务，将策略实例化为任务
+      policyCron: "0 16 * * *"
+      # 一天运行一次：提前一天检查任务是否具备执行条件
+      taskCron: "0 9,17 * * *"
+    
+    workflow:
+      driver: "argo"
+      argo:
+        url: "http://argoworkflow.iopi.cowelltech.com"
+        token: "eyJhbGciOiJSUzI1NiIsImtpZCI6IjM3V2ZjSnpaUFNNdVdkbTFINEwtS25aY0ZVQ0x2bWJOYmRTbkRQRzhNbjgifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJhcmdvIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImFyZ28tdG9rZW4taG41Y3EiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiYXJnbyIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjQwYzU2NzVhLWQxZWEtNGJkMy04NTI2LTk1NDYyOTUxNjkxMiIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDphcmdvOmFyZ28ifQ.XaRE1vwZzyz2MoQckrMqNUg4qB7oGC7EvfcgbZxbWSuvRqUbpRkTojCC7bji8lqMAI6TmAEyEt8NM7U2zow45Numg8-6gJYeX58UyHdT1p5-mxq5IxnEj79X1jv2_cNQf2110Gd-QqH3oY54s78ELFTb03HAneLivhmG3psIikvkhq08kyuSMfJ710j6DSZh_I5cKY7xr0X79erN5oSObGvD-9jdcM4A2-EtXqbRjfXFLFKeiqAh8ZuBgjMwGlnsv3E3ydEZFQ-lR9emPgVh5PfOGPvmQ6LWirN9M5kTse2OWZ7I5p0zUfO3fDnGwkjQQ1A_Pux3WsSIH08KPeHl8w"
+        templates:
+          # 清空表
+          truncate: "mysql-enhance-pack/mysql-truncate"
+          # 清空表
+          delete: "mysql-enhance-pack/mysql-delete"
+          # 重建表
+          rebuild: "mysql-enhance-pack/mysql-rebuild-table"
+          # 归档表
+          archive: "mysql-enhance-pack/mysql-archive"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: mysql-enhance-pack
+  name: mysql-enhance-pack
+  namespace: iop-saas-testing
+spec:
+  ports:
+    - name: tcp
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app: mysql-enhance-pack
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebeat-config-mysql-enhance-pack
+  namespace: iop-saas-testing
+data:
+  filebeat.yml: |
+    filebeat.inputs:
+      - type: log
+        paths:
+          - /var/logs/spring-log/log.log
+        fields:
+          log_topic: "${KAFKA_TOPIC}"
+        fields_under_root: true
+        json.keys_under_root: true
+        json.overwrite_keys: true
+        scan_frequency: 5s
+        clean_inactive: 4h
+        ignore_older: 3h
+    processors:
+      - add_fields:
+          target: ''
+          fields:
+            instance_name: '${HOSTNAME}'
+            host: '${NODE_NAME}'
+            env: '${ENV}'
+      - drop_fields:
+          fields: ["agent", "input", "ecs", "log", "@metadata"]
+          ignore_missing: true
+    output.kafka:
+      enabled: true
+      hosts: ['${KAFKA_IP_1}', '${KAFKA_IP_2}', '${KAFKA_IP_3}']
+      topic: '${KAFKA_TOPIC}'
+      partition.round_robin:
+        reachable_only: true
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: mysql-enhance-pack-test
+  namespace: iop-saas-testing
+spec:
+  selector:
+    appc: istio-ingressgateway-tcp
+  servers:
+  - hosts:
+    - isql-test.iop.cowelltech.com
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: mysql-enhance-pack-test
+  namespace: iop-saas-testing
+spec:
+  gateways:
+  - mysql-enhance-pack-test
+  hosts:
+  - mysql-enhance-pack-test.iop.cowelltech.com
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: mysql-enhance-pack

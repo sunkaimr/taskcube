@@ -1,0 +1,28 @@
+server:
+  # debug release test
+  ginMode: "debug"
+  # 监听的端口
+  port: "8080"
+  # 从外部访问服务时的地址http://ip:port
+  externalAddr: "http://127.0.0.1:8080"
+
+Jwt:
+  # secret 长度必须为16或32或64
+  secret: "abcdefghijklmnop"
+
+mysql:
+  host: "127.0.0.1"
+  port: "3306"
+  user: "root"
+  password: "123456"
+  database: "test"
+
+
+log:
+  path: "log.log"
+  # error warn info debug
+  level: "debug"
+  maxSize: 10
+  maxBackups: 7
+  maxAge: 10
+  compress: false
