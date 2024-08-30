@@ -6,13 +6,15 @@ server:
   # 从外部访问服务时的地址http://ip:port
   externalAddr: "http://127.0.0.1:8080"
 
-Jwt:
-  # secret 长度必须为16或32或64
-  secret: "abcdefghijklmnop"
-
+#mysql:
+#  host: "127.0.0.1"
+#  port: "3306"
+#  user: "root"
+#  password: "123456"
+#  database: "test"
 mysql:
-  host: "127.0.0.1"
-  port: "3306"
+  host: "10.2.7.26"
+  port: "30336"
   user: "root"
   password: "123456"
   database: "test"

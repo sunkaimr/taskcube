@@ -1,0 +1,18 @@
+kind: TaskTemplate
+metadata:
+  name: delete
+spec:
+  input:
+    - name: url
+      value: xxx
+  steps:
+    - name: step1
+      image: ubuntu:latest
+      script: bash-shell
+    - name: step2
+      image: ubuntu:latest
+      script: python-script
+    - name: step3
+      image: ubuntu:latest
+      source: |
+        echo "hello"

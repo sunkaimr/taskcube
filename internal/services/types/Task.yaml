@@ -1,0 +1,50 @@
+kind: Task
+metadata:
+  name: delete
+  createAt: "2024-08-01 12:00:00"
+  deleteAt: "2024-08-01 12:23:34"
+spec:
+  pause: false
+  terminate: false
+  input:
+    - name: url
+      value: xxx
+  steps:
+    - name: step1
+      image: ubuntu:latest
+      script: bash-shell
+    - name: step2
+      image: ubuntu:latest
+      script: python-script
+    - name: step3
+      image: ubuntu:latest
+      source: |
+        echo "hello"
+status:
+  status: "Running"
+  progress: "1/2"
+  steps:
+    - name: step1
+      host: 192.168.1.1:2375
+      containerID: avcxhwerdbffghjgh
+      status: "Exited"
+      message: ""
+      exitCode: 0
+      input:
+        - name: url
+          value: xxx
+      output:
+        - name: table
+          value: yyyy
+    - name: step2
+      host: 192.168.1.1:2375
+      containerID: avcxhwerdbffghjgh
+      status: ""
+      message: ""
+      exitCode: 0
+      input:
+        - name: url
+          value: xxx
+      output:
+        - name: table
+          value: yyyy

@@ -1,0 +1,20 @@
+
+kind: Script
+metadata:
+  name: delete
+  version: 1
+  type: shell
+  createAt: "2024-08-01 12:00:00"
+source: |
+  sleep 100;
+
+---
+
+kind: Script
+metadata:
+  name: delete
+  version: 1
+  type: python
+  createAt: "2024-08-01 12:00:00"
+source: |
+  sleep 100;

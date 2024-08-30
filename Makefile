@@ -1,6 +1,6 @@
 # Image URL to use all building/pushing image targets
-VER ?= v1.0.14
-IMG ?= cowell-images.tencentcloudcr.com/cowellpi/mysql-enhance-pack:${VER}
+VER ?= 1.0.0
+IMG ?= taskcube:${VER}
 
 # application name
 APP ?= mysql-enhance-pack
@@ -53,10 +53,10 @@ vet: ## Run go vet against code.
 
 .PHONY: build
 build: fmt ## Build binary.
-	go build -ldflags "-X 'gitlab.cowelltech.com/ops/mysql-enhance-pack/cmd.version=${VER}' \
-                       -X 'gitlab.cowelltech.com/ops/mysql-enhance-pack/cmd.goVersion=$$(go version)' \
-                       -X 'gitlab.cowelltech.com/ops/mysql-enhance-pack/cmd.gitCommit=$$(git show -s --format=%H)' \
-                       -X 'gitlab.cowelltech.com/ops/mysql-enhance-pack/cmd.buildTime=$$(date +'%Y-%m-%d %H:%M:%S')'" \
+	go build -ldflags "-X 'github.com/sunkaimr/taskcube/cmd.version=${VER}' \
+                       -X 'github.com/sunkaimr/taskcube/cmd.goVersion=$$(go version)' \
+                       -X 'github.com/sunkaimr/taskcube/cmd.gitCommit=$$(git show -s --format=%H)' \
+                       -X 'github.com/sunkaimr/taskcube/cmd.buildTime=$$(date +'%Y-%m-%d %H:%M:%S')'" \
                        -o ${APP} main.go
 
 .PHONY: run

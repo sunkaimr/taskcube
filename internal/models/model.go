@@ -5,6 +5,7 @@ import (
 	"errors"
 	l "github.com/sunkaimr/taskcube/internal/pkg/logger"
 	"github.com/sunkaimr/taskcube/internal/pkg/mysql"
+	"github.com/sunkaimr/taskcube/internal/services/types"
 	"gorm.io/gorm"
 	"time"
 )
@@ -14,18 +15,17 @@ type Model struct {
 	CreatedAt time.Time      `json:"created_at" gorm:"type:DATETIME;comment:创建时间"`
 	UpdatedAt time.Time      `json:"updated_at" gorm:"type:DATETIME;comment:修改时间"`
 	DeletedAt gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"type:DATETIME;index;comment:删除时间"`
-	Creator   string         `json:"creator" gorm:"type:varchar(64);not null;comment:创建人"`
-	Editor    string         `json:"editor" gorm:"type:varchar(64);comment:修改人"`
 }
 
 func UpdateModels() {
 	err := mysql.DB.AutoMigrate(
-		&Task{},
+		&types.ScriptModel{},
+		&types.TaskTemplateModel{},
+		&types.TaskModel{},
 	)
 	if err != nil {
 		l.Log.Error(err)
 	}
-
 }
 
 type JSON []byte

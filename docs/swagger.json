@@ -1,0 +1,1070 @@
+{
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "taskcube",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {},
+        "version": "v1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/taskcube/api/v1",
+    "paths": {
+        "/health": {
+            "get": {
+                "description": "健康检查",
+                "tags": [
+                    "其他"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/script": {
+            "get": {
+                "description": "查询执行脚本",
+                "tags": [
+                    "执行脚本"
+                ],
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "page",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "pageSize",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "name",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "version",
+                        "name": "version",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "shell",
+                            "python"
+                        ],
+                        "type": "string",
+                        "description": "Script type",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/common.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/services.ScriptService"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "更新执行脚本",
+                "tags": [
+                    "执行脚本"
+                ],
+                "parameters": [
+                    {
+                        "description": "ScriptService",
+                        "name": "Script",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services.ScriptService"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/common.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services.ScriptService"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "创建任务",
+                "tags": [
+                    "执行脚本"
+                ],
+                "parameters": [
+                    {
+                        "description": "ScriptService",
+                        "name": "Script",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services.ScriptService"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/common.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services.ScriptService"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/script/{script}": {
+            "delete": {
+                "description": "删除执行脚本",
+                "tags": [
+                    "执行脚本"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "script",
+                        "name": "script",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "version",
+                        "name": "version",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/task": {
+            "get": {
+                "description": "查询任务",
+                "tags": [
+                    "任务"
+                ],
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "page",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "pageSize",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "name",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "version",
+                        "name": "version",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "pause",
+                        "name": "pause",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "terminate",
+                        "name": "terminate",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "Creating",
+                            "Pending",
+                            "Running",
+                            "Pausing",
+                            "Paused",
+                            "Succeeded",
+                            "Failed",
+                            "Unknown",
+                            "Terminating",
+                            "Terminated"
+                        ],
+                        "type": "string",
+                        "description": "status",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/common.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/services.TaskService"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "更新任务",
+                "tags": [
+                    "任务"
+                ],
+                "parameters": [
+                    {
+                        "description": "TaskService",
+                        "name": "Task",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services.TaskService"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/common.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services.TaskService"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "创建任务",
+                "tags": [
+                    "任务"
+                ],
+                "parameters": [
+                    {
+                        "description": "TaskService",
+                        "name": "Task",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services.TaskService"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/common.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services.TaskService"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/task/{task}": {
+            "delete": {
+                "description": "删除任务",
+                "tags": [
+                    "任务"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "task",
+                        "name": "task",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/task/{task}/logs": {
+            "get": {
+                "description": "查看任务日志",
+                "tags": [
+                    "任务"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "task",
+                        "name": "task",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/task/{task}/pause": {
+            "post": {
+                "description": "暂停任务",
+                "tags": [
+                    "任务"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "task",
+                        "name": "task",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/task/{task}/stop": {
+            "post": {
+                "description": "停止任务",
+                "tags": [
+                    "任务"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "task",
+                        "name": "task",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/task/{task}/unpause": {
+            "post": {
+                "description": "恢复任务",
+                "tags": [
+                    "任务"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "task",
+                        "name": "task",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/template": {
+            "get": {
+                "description": "查询任务模版",
+                "tags": [
+                    "任务模版"
+                ],
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "page",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "pageSize",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "name",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "version",
+                        "name": "version",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/common.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/services.TaskTemplateService"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "更新任务模版",
+                "tags": [
+                    "任务模版"
+                ],
+                "parameters": [
+                    {
+                        "description": "TaskTemplateService",
+                        "name": "TaskTemplate",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services.TaskTemplateService"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/common.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services.TaskTemplateService"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "创建任务模版",
+                "tags": [
+                    "任务模版"
+                ],
+                "parameters": [
+                    {
+                        "description": "TaskTemplateService",
+                        "name": "TaskTemplate",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services.TaskTemplateService"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/common.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services.TaskTemplateService"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/template/{template}": {
+            "delete": {
+                "description": "删除任务模版",
+                "tags": [
+                    "任务模版"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "template",
+                        "name": "template",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "version",
+                        "name": "version",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/template/{template}/submit": {
+            "post": {
+                "description": "提交任务模版",
+                "tags": [
+                    "任务模版"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "template",
+                        "name": "template",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "common.Response": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "返回码",
+                    "type": "integer"
+                },
+                "data": {
+                    "description": "返回数据"
+                },
+                "error": {
+                    "description": "错误信息",
+                    "type": "string"
+                },
+                "message": {
+                    "description": "返回信息",
+                    "type": "string"
+                }
+            }
+        },
+        "services.ScriptService": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "$ref": "#/definitions/types.KindType"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/types.ScriptMetadata"
+                },
+                "source": {
+                    "type": "string"
+                }
+            }
+        },
+        "services.TaskService": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "$ref": "#/definitions/types.KindType"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/types.TaskMetadata"
+                },
+                "spec": {
+                    "$ref": "#/definitions/types.TaskSpec"
+                },
+                "status": {
+                    "$ref": "#/definitions/types.TaskStatus"
+                }
+            }
+        },
+        "services.TaskTemplateService": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "$ref": "#/definitions/types.KindType"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/types.TaskMetadata"
+                },
+                "spec": {
+                    "$ref": "#/definitions/types.TaskTemplateSpec"
+                }
+            }
+        },
+        "types.KindType": {
+            "type": "string",
+            "enum": [
+                "Script",
+                "Task",
+                "TaskTemplate"
+            ],
+            "x-enum-varnames": [
+                "ScriptKind",
+                "TaskKind",
+                "TaskTemplateKind"
+            ]
+        },
+        "types.ScriptMetadata": {
+            "type": "object",
+            "properties": {
+                "createAt": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/types.ScriptType"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "types.ScriptType": {
+            "type": "string",
+            "enum": [
+                "shell",
+                "python"
+            ],
+            "x-enum-varnames": [
+                "ScriptTypeShell",
+                "ScriptTypePython"
+            ]
+        },
+        "types.TaskMetadata": {
+            "type": "object",
+            "properties": {
+                "createAt": {
+                    "type": "string"
+                },
+                "deleteAt": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "types.TaskSpec": {
+            "type": "object",
+            "properties": {
+                "input": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "pause": {
+                    "type": "boolean"
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.TaskSpecStep"
+                    }
+                },
+                "terminate": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "types.TaskSpecStep": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "input": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "script": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                }
+            }
+        },
+        "types.TaskStatus": {
+            "type": "object",
+            "properties": {
+                "progress": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/types.TaskStatusType"
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.TaskStatusStep"
+                    }
+                }
+            }
+        },
+        "types.TaskStatusStep": {
+            "type": "object",
+            "properties": {
+                "containerID": {
+                    "type": "string"
+                },
+                "exitCode": {
+                    "type": "integer"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "input": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "message": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "output": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "status": {
+                    "$ref": "#/definitions/types.TaskStepStatusType"
+                }
+            }
+        },
+        "types.TaskStatusType": {
+            "type": "string",
+            "enum": [
+                "Creating",
+                "Pending",
+                "Running",
+                "Pausing",
+                "Paused",
+                "Succeeded",
+                "Failed",
+                "Unknown",
+                "Terminating",
+                "Terminated"
+            ],
+            "x-enum-varnames": [
+                "TaskStatusCreating",
+                "TaskStatusPending",
+                "TaskStatusRunning",
+                "TaskStatusPausing",
+                "TaskStatusPaused",
+                "TaskStatusSucceeded",
+                "TaskStatusFailed",
+                "TaskStatusUnknown",
+                "TaskStatusTerminating",
+                "TaskStatusTerminated"
+            ]
+        },
+        "types.TaskStepStatusType": {
+            "type": "string",
+            "enum": [
+                "Creating",
+                "Initializing",
+                "Running",
+                "Paused",
+                "Exited"
+            ],
+            "x-enum-varnames": [
+                "TaskStepStatusCreating",
+                "TaskStepStatusInitializing",
+                "TaskStepStatusRunning",
+                "TaskStepStatusPaused",
+                "TaskStepStatusExited"
+            ]
+        },
+        "types.TaskTemplateSpec": {
+            "type": "object",
+            "properties": {
+                "input": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.TaskSpecStep"
+                    }
+                }
+            }
+        }
+    }
+}

@@ -17,4 +17,4 @@ WORKDIR /opt/
 EXPOSE 8080
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["/opt/mysql-enhance-pack", "server"]
+CMD ["/opt/taskcube", "server"]

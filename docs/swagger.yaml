@@ -1,0 +1,685 @@
+basePath: /taskcube/api/v1
+definitions:
+  common.Response:
+    properties:
+      code:
+        description: 返回码
+        type: integer
+      data:
+        description: 返回数据
+      error:
+        description: 错误信息
+        type: string
+      message:
+        description: 返回信息
+        type: string
+    type: object
+  services.ScriptService:
+    properties:
+      kind:
+        $ref: '#/definitions/types.KindType'
+      metadata:
+        $ref: '#/definitions/types.ScriptMetadata'
+      source:
+        type: string
+    type: object
+  services.TaskService:
+    properties:
+      kind:
+        $ref: '#/definitions/types.KindType'
+      metadata:
+        $ref: '#/definitions/types.TaskMetadata'
+      spec:
+        $ref: '#/definitions/types.TaskSpec'
+      status:
+        $ref: '#/definitions/types.TaskStatus'
+    type: object
+  services.TaskTemplateService:
+    properties:
+      kind:
+        $ref: '#/definitions/types.KindType'
+      metadata:
+        $ref: '#/definitions/types.TaskMetadata'
+      spec:
+        $ref: '#/definitions/types.TaskTemplateSpec'
+    type: object
+  types.KindType:
+    enum:
+    - Script
+    - Task
+    - TaskTemplate
+    type: string
+    x-enum-varnames:
+    - ScriptKind
+    - TaskKind
+    - TaskTemplateKind
+  types.ScriptMetadata:
+    properties:
+      createAt:
+        type: string
+      name:
+        type: string
+      type:
+        $ref: '#/definitions/types.ScriptType'
+      version:
+        type: string
+    type: object
+  types.ScriptType:
+    enum:
+    - shell
+    - python
+    type: string
+    x-enum-varnames:
+    - ScriptTypeShell
+    - ScriptTypePython
+  types.TaskMetadata:
+    properties:
+      createAt:
+        type: string
+      deleteAt:
+        type: string
+      name:
+        type: string
+      version:
+        type: string
+    type: object
+  types.TaskSpec:
+    properties:
+      input:
+        additionalProperties:
+          type: string
+        type: object
+      pause:
+        type: boolean
+      steps:
+        items:
+          $ref: '#/definitions/types.TaskSpecStep'
+        type: array
+      terminate:
+        type: boolean
+    type: object
+  types.TaskSpecStep:
+    properties:
+      image:
+        type: string
+      input:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      script:
+        type: string
+      source:
+        type: string
+    type: object
+  types.TaskStatus:
+    properties:
+      progress:
+        type: string
+      status:
+        $ref: '#/definitions/types.TaskStatusType'
+      steps:
+        items:
+          $ref: '#/definitions/types.TaskStatusStep'
+        type: array
+    type: object
+  types.TaskStatusStep:
+    properties:
+      containerID:
+        type: string
+      exitCode:
+        type: integer
+      host:
+        type: string
+      input:
+        additionalProperties:
+          type: string
+        type: object
+      message:
+        type: string
+      name:
+        type: string
+      output:
+        additionalProperties:
+          type: string
+        type: object
+      status:
+        $ref: '#/definitions/types.TaskStepStatusType'
+    type: object
+  types.TaskStatusType:
+    enum:
+    - Creating
+    - Pending
+    - Running
+    - Pausing
+    - Paused
+    - Succeeded
+    - Failed
+    - Unknown
+    - Terminating
+    - Terminated
+    type: string
+    x-enum-varnames:
+    - TaskStatusCreating
+    - TaskStatusPending
+    - TaskStatusRunning
+    - TaskStatusPausing
+    - TaskStatusPaused
+    - TaskStatusSucceeded
+    - TaskStatusFailed
+    - TaskStatusUnknown
+    - TaskStatusTerminating
+    - TaskStatusTerminated
+  types.TaskStepStatusType:
+    enum:
+    - Creating
+    - Initializing
+    - Running
+    - Paused
+    - Exited
+    type: string
+    x-enum-varnames:
+    - TaskStepStatusCreating
+    - TaskStepStatusInitializing
+    - TaskStepStatusRunning
+    - TaskStepStatusPaused
+    - TaskStepStatusExited
+  types.TaskTemplateSpec:
+    properties:
+      input:
+        additionalProperties:
+          type: string
+        type: object
+      steps:
+        items:
+          $ref: '#/definitions/types.TaskSpecStep'
+        type: array
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: taskcube
+  termsOfService: http://swagger.io/terms/
+  version: v1.0
+paths:
+  /health:
+    get:
+      description: 健康检查
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 其他
+  /script:
+    get:
+      description: 查询执行脚本
+      parameters:
+      - description: page
+        in: query
+        name: page
+        type: integer
+      - description: pageSize
+        in: query
+        name: pageSize
+        type: integer
+      - description: name
+        in: query
+        name: name
+        type: string
+      - description: version
+        in: query
+        name: version
+        type: string
+      - description: Script type
+        enum:
+        - shell
+        - python
+        in: query
+        name: type
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/common.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/services.ScriptService'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 执行脚本
+    post:
+      description: 创建任务
+      parameters:
+      - description: ScriptService
+        in: body
+        name: Script
+        required: true
+        schema:
+          $ref: '#/definitions/services.ScriptService'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/common.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/services.ScriptService'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 执行脚本
+    put:
+      description: 更新执行脚本
+      parameters:
+      - description: ScriptService
+        in: body
+        name: Script
+        required: true
+        schema:
+          $ref: '#/definitions/services.ScriptService'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/common.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/services.ScriptService'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 执行脚本
+  /script/{script}:
+    delete:
+      description: 删除执行脚本
+      parameters:
+      - description: script
+        in: path
+        name: script
+        required: true
+        type: string
+      - description: version
+        in: query
+        name: version
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 执行脚本
+  /task:
+    get:
+      description: 查询任务
+      parameters:
+      - description: page
+        in: query
+        name: page
+        type: integer
+      - description: pageSize
+        in: query
+        name: pageSize
+        type: integer
+      - description: name
+        in: query
+        name: name
+        type: string
+      - description: version
+        in: query
+        name: version
+        type: string
+      - description: pause
+        in: query
+        name: pause
+        type: boolean
+      - description: terminate
+        in: query
+        name: terminate
+        type: boolean
+      - description: status
+        enum:
+        - Creating
+        - Pending
+        - Running
+        - Pausing
+        - Paused
+        - Succeeded
+        - Failed
+        - Unknown
+        - Terminating
+        - Terminated
+        in: query
+        name: status
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/common.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/services.TaskService'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 任务
+    post:
+      description: 创建任务
+      parameters:
+      - description: TaskService
+        in: body
+        name: Task
+        required: true
+        schema:
+          $ref: '#/definitions/services.TaskService'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/common.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/services.TaskService'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 任务
+    put:
+      description: 更新任务
+      parameters:
+      - description: TaskService
+        in: body
+        name: Task
+        required: true
+        schema:
+          $ref: '#/definitions/services.TaskService'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/common.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/services.TaskService'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 任务
+  /task/{task}:
+    delete:
+      description: 删除任务
+      parameters:
+      - description: task
+        in: path
+        name: task
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 任务
+  /task/{task}/logs:
+    get:
+      description: 查看任务日志
+      parameters:
+      - description: task
+        in: path
+        name: task
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 任务
+  /task/{task}/pause:
+    post:
+      description: 暂停任务
+      parameters:
+      - description: task
+        in: path
+        name: task
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 任务
+  /task/{task}/stop:
+    post:
+      description: 停止任务
+      parameters:
+      - description: task
+        in: path
+        name: task
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 任务
+  /task/{task}/unpause:
+    post:
+      description: 恢复任务
+      parameters:
+      - description: task
+        in: path
+        name: task
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 任务
+  /template:
+    get:
+      description: 查询任务模版
+      parameters:
+      - description: page
+        in: query
+        name: page
+        type: integer
+      - description: pageSize
+        in: query
+        name: pageSize
+        type: integer
+      - description: name
+        in: query
+        name: name
+        type: string
+      - description: version
+        in: query
+        name: version
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/common.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/services.TaskTemplateService'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 任务模版
+    post:
+      description: 创建任务模版
+      parameters:
+      - description: TaskTemplateService
+        in: body
+        name: TaskTemplate
+        required: true
+        schema:
+          $ref: '#/definitions/services.TaskTemplateService'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/common.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/services.TaskTemplateService'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 任务模版
+    put:
+      description: 更新任务模版
+      parameters:
+      - description: TaskTemplateService
+        in: body
+        name: TaskTemplate
+        required: true
+        schema:
+          $ref: '#/definitions/services.TaskTemplateService'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/common.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/services.TaskTemplateService'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 任务模版
+  /template/{template}:
+    delete:
+      description: 删除任务模版
+      parameters:
+      - description: template
+        in: path
+        name: template
+        required: true
+        type: string
+      - description: version
+        in: query
+        name: version
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 任务模版
+  /template/{template}/submit:
+    post:
+      description: 提交任务模版
+      parameters:
+      - description: template
+        in: path
+        name: template
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.Response'
+      tags:
+      - 任务模版
+schemes:
+- http
+- https
+swagger: "2.0"
