@@ -6,9 +6,11 @@ metadata:
 spec:
   pause: false
   terminate: false
+  host: 192.168.1.1:2375
   input:
-    - name: url
-      value: xxx
+    input:
+      - name: url
+        value: xxx
   steps:
     - name: step1
       image: ubuntu:latest
@@ -22,10 +24,10 @@ spec:
         echo "hello"
 status:
   status: "Running"
+  message: ""
   progress: "1/2"
   steps:
     - name: step1
-      host: 192.168.1.1:2375
       containerID: avcxhwerdbffghjgh
       status: "Exited"
       message: ""
@@ -37,7 +39,6 @@ status:
         - name: table
           value: yyyy
     - name: step2
-      host: 192.168.1.1:2375
       containerID: avcxhwerdbffghjgh
       status: ""
       message: ""

@@ -13,17 +13,18 @@ var ErrMultipleRecord = errors.New("multiple record found")
 type TaskStepStatusType string
 
 const (
-	TaskStepStatusCreating     TaskStepStatusType = "Creating"
-	TaskStepStatusInitializing TaskStepStatusType = "Initializing"
-	TaskStepStatusRunning      TaskStepStatusType = "Running"
-	TaskStepStatusPaused       TaskStepStatusType = "Paused"
-	TaskStepStatusExited       TaskStepStatusType = "Exited"
+	TaskStepStatusCreating     TaskStepStatusType = "creating"
+	TaskStepStatusCreated      TaskStepStatusType = "created"
+	TaskStepStatusInitializing TaskStepStatusType = "initializing"
+	TaskStepStatusRunning      TaskStepStatusType = "running"
+	TaskStepStatusPaused       TaskStepStatusType = "paused"
+	TaskStepStatusExited       TaskStepStatusType = "exited"
 )
 
 type TaskStatusType string
 
 const (
-	TaskStatusCreating    TaskStatusType = "Creating"
+	TaskStatusCreated     TaskStatusType = "Created"
 	TaskStatusPending     TaskStatusType = "Pending"
 	TaskStatusRunning     TaskStatusType = "Running"
 	TaskStatusPausing     TaskStatusType = "Pausing"
@@ -36,10 +37,10 @@ const (
 )
 
 // TaskStatusCanUpdate 以下状态的任务还没有进入运行状态可以更改
-var TaskStatusCanUpdate = []TaskStatusType{"", TaskStatusCreating, TaskStatusPending}
+var TaskStatusCanUpdate = []TaskStatusType{"", TaskStatusCreated, TaskStatusPending}
 
 // TaskStatusCanPauseStop 以下状态的任务可以暂停或停止
-var TaskStatusCanPauseStop = []TaskStatusType{"", TaskStatusCreating, TaskStatusPending, TaskStatusRunning, TaskStatusPausing, TaskStatusPaused}
+var TaskStatusCanPauseStop = []TaskStatusType{"", TaskStatusCreated, TaskStatusPending, TaskStatusRunning, TaskStatusPausing, TaskStatusPaused}
 
 type KindType string
 
@@ -378,12 +379,14 @@ type Task struct {
 type TaskSpec struct {
 	Pause     bool              `json:"pause" yaml:"pause"`
 	Terminate bool              `json:"terminate" yaml:"terminate"`
+	Host      string            `json:"host" yaml:"host"`
 	Steps     []TaskSpecStep    `json:"steps" yaml:"steps"`
 	Input     map[string]string `json:"input" yaml:"input"`
 }
 
 type TaskStatus struct {
 	Status   TaskStatusType   `json:"status,omitempty" yaml:"status,omitempty"`
+	Message  string           `json:"message,omitempty" yaml:"message,omitempty"`
 	Progress string           `json:"progress,omitempty" yaml:"progress,omitempty"`
 	Steps    []TaskStatusStep `json:"steps,omitempty" yaml:"steps,omitempty"`
 }
@@ -398,7 +401,6 @@ type TaskSpecStep struct {
 
 type TaskStatusStep struct {
 	Name        string             `json:"name" yaml:"name"`
-	Host        string             `json:"host" yaml:"host"`
 	ContainerID string             `json:"containerID" yaml:"containerID"`
 	Status      TaskStepStatusType `json:"status" yaml:"status"`
 	Message     string             `json:"message" yaml:"message"`

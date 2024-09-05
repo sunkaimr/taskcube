@@ -28,6 +28,6 @@ logs
 assets/.DS_Store
 
 pkg/docker
-pkg/executer
+pkg/agent
 pkg/task-controller
 

@@ -10,6 +10,7 @@ import (
 	"github.com/sunkaimr/taskcube/internal/pkg/logger"
 	"github.com/sunkaimr/taskcube/internal/pkg/mysql"
 	"github.com/sunkaimr/taskcube/internal/router"
+	task_controller "github.com/sunkaimr/taskcube/internal/task-controller"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"net/http"
@@ -59,6 +60,7 @@ func start() {
 
 	go startHttpServer(ctx)
 	time.Sleep(time.Second * 1)
+	go task_controller.NewTaskController(ctx).Start()
 
 	time.Sleep(time.Second * 3)
 	ctx.Wg.Wait()
