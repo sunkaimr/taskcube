@@ -172,7 +172,7 @@ func scheduleTask(c *TaskController, task *Task) error {
 	return nil
 }
 
-// taskLifeCycleHandler 控制Running状态的任务项其他状态流转
+// taskLifeCycleHandler 控制Running状态的任务向其他状态流转
 func (c *TaskController) taskLifeCycleHandler() {
 	db, log := c.ctx.DB, c.ctx.Log
 
@@ -184,12 +184,9 @@ func (c *TaskController) taskLifeCycleHandler() {
 	}
 
 	for _, task := range tasks {
+		state := ""
 		curStepIndex := findCurStepIndex(&task)
-
-		if task.Metadata.DeleteAt != "" {
-			task.Spec.Terminate = true
-		}
-		containerID := task.Status.Steps[curStepIndex].ContainerID
+		curContainerID := task.Status.Steps[curStepIndex].ContainerID
 
 		cli, err := docker.New(&docker.ContainerOps{ServerHost: task.Spec.Host, APIVersion: c.APIVersion})
 		if err != nil {
@@ -197,72 +194,129 @@ func (c *TaskController) taskLifeCycleHandler() {
 			return
 		}
 
-		_, status, err := cli.State(c.ctx.Context, "id", containerID)
+		if curContainerID == "" {
+			// 创建容器
+			err = c.createContainer(curStepIndex, &task)
+			if err != nil {
+				log.Errorf("create container failed, %s", err)
+				return
+			}
+
+			curStepIndex = findCurStepIndex(&task)
+			curContainerID = task.Status.Steps[curStepIndex].ContainerID
+			goto updateTask
+		}
+
+		_, state, err = cli.State(c.ctx.Context, "id", curContainerID)
 		if err != nil {
 			if errors.Is(err, docker.ContainerNotExistError) {
-				log.Infof("task(%s).step(%d) has been terminated container(%s/%s) not exist", task.Metadata.Name, curStepIndex, task.Spec.Host, containerID)
+				log.Infof("task(%s).step(%d) has been terminated container(%s/%s) not exist", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID)
 			} else {
-				log.Errorf("task(%s).step(%d) has been terminated get container(%s/%s) status failed, %s", task.Metadata.Name, curStepIndex, task.Spec.Host, containerID, err)
+				log.Errorf("task(%s).step(%d) has been terminated get container(%s/%s) state failed, %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, err)
 				continue
 			}
 		}
 
+		if task.Metadata.DeleteAt != "" {
+			task.Spec.Terminate = true
+		}
 		if task.Spec.Terminate {
 			// 确保运行状态的容器都已停止
-			if !errors.Is(err, docker.ContainerNotExistError) && status != string(TaskStepStatusExited) {
-				log.Infof("task(%s).step(%d) has been terminated but container(%s/%s) exist need delete", task.Metadata.Name, curStepIndex, task.Spec.Host, containerID)
+			if !errors.Is(err, docker.ContainerNotExistError) && state != string(TaskStepStatusExited) {
+				log.Infof("task(%s).step(%d) has been terminated but container(%s/%s) exist need delete", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID)
 
-				if err = cli.Delete(c.ctx.Context, containerID); err != nil {
-					log.Errorf("task(%s).step(%d) has been terminated but delete container(%s/%s) failed, %s", task.Metadata.Name, curStepIndex, task.Spec.Host, containerID, err)
+				// TODO 更新steps[].message 任务被删除了
+				if err = cli.Delete(c.ctx.Context, curContainerID); err != nil {
+					msg := fmt.Sprintf("task(%s).step(%d) has been terminated but delete container(%s/%s) failed, %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, err)
+					log.Error(err)
+					task.Status.Steps[curStepIndex].Message = msg
+				} else {
+					task.Status.Steps[curStepIndex].Status = TaskStepStatusExited
+					task.Status.Steps[curStepIndex].Message = fmt.Sprintf("task(%s).step(%d) has been terminated container(%s/%s) has been deleted", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID)
 				}
+
+				task.Status.Status = TaskStatusTerminating
 				// 等待下一次循环再删除任务确保容器一定被删除了
-				continue
+				goto updateTask
 			}
 
+			task.Status.Status = TaskStatusTerminated
 			// 当所有容器都停止后删除该任务
 			if err = task.Delete(db); err != nil {
 				log.Errorf("task(%s).step(%d) has been terminated but delete container(%s/%s) failed, %s",
-					task.Metadata.Name, curStepIndex, task.Spec.Host, containerID, err)
+					task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, err)
 				continue
 			}
 		}
 
 		if task.Spec.Pause {
-			if status != string(TaskStepStatusPaused) {
-				log.Infof("task(%s).step(%d) has been paused but container(%s/%s) status is %s", task.Metadata.Name, curStepIndex, task.Spec.Host, containerID, status)
+			if state != string(TaskStepStatusPaused) {
+				log.Infof("task(%s).step(%d) has been paused but container(%s/%s) state is %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, state)
 
-				if err = cli.Pauses(c.ctx.Context, containerID); err != nil {
-					log.Errorf("task(%s).step(%d) has been paused but pause container(%s/%s) failed, %s", task.Metadata.Name, curStepIndex, task.Spec.Host, containerID, err)
+				if err = cli.Pauses(c.ctx.Context, curContainerID); err != nil {
+					msg := fmt.Sprintf("task(%s).step(%d) has been paused but pause container(%s/%s) failed, %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, err)
+					log.Error(err)
+					task.Status.Steps[curStepIndex].Message = msg
+				} else {
+					task.Status.Steps[curStepIndex].Status = TaskStepStatusPaused
+					task.Status.Steps[curStepIndex].Message = fmt.Sprintf("task(%s).step(%d) has been paused container(%s/%s) has been paused", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID)
 				}
+
+				goto updateTask
 			}
 		}
 
 		if !task.Spec.Pause {
 			// TODO 确保容器处于运行状态
-			if containerID == "" {
-				// TODO 首次启动容器
-				task.Status.Steps[curStepIndex].ContainerID, err = cli.Run(c.ctx.Context)
+			switch TaskStepStatusType(state) {
+			case TaskStepStatusCreating, TaskStepStatusCreated, TaskStepStatusInitializing, TaskStepStatusRunning:
+				// TODO 更新 steps[].status
+				task.Status.Steps[curStepIndex].Status = TaskStepStatusCreating
+				task.Status.Steps[curStepIndex].Message = fmt.Sprintf("task(%s).step(%d) should running container(%s/%s) state is %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, state)
+			case TaskStepStatusPaused:
+				log.Infof("task(%s).step(%d) is running but container(%s/%s) state is %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, state)
+				if err = cli.Unpauses(c.ctx.Context, curContainerID); err != nil {
+					msg := fmt.Sprintf("task(%s).step(%d) is running but but unpause container(%s/%s) failed, %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, err)
+					log.Error(msg)
+					task.Status.Steps[curStepIndex].Status = TaskStepStatusPaused
+					task.Status.Steps[curStepIndex].Message = msg
+				} else {
+					log.Infof("task(%s).step(%d) should running and unpause container(%s/%s) success", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID)
+				}
+			case TaskStepStatusExited:
+				// TODO 判断退出码
+				code, err := cli.ExitCode(c.ctx.Context, curContainerID)
 				if err != nil {
-					log.Errorf("task(%s).step(%d) is running but but create container(%s/%s) failed, %s", task.Metadata.Name, curStepIndex, task.Spec.Host, containerID, err)
+					msg := fmt.Sprintf("task(%s).step(%d) is running but container(%s/%s) state is %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, state)
+					log.Error(msg)
+					task.Status.Steps[curStepIndex].Message = msg
+					goto updateTask
+				}
+				task.Status.Steps[curStepIndex].Status = TaskStepStatusExited
+				task.Status.Steps[curStepIndex].ExitCode = code
+				task.Status.Steps[curStepIndex].Message = ""
+				log.Infof("task(%s).step(%d) should running but container(%s/%s) state is %s exit code is %d", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, state, code)
+
+				// 1，退出码非0 - 标记任务执行失败
+				// 2, 退出码为0
+				//    - 如果最后一个容器已经结束则任务完成状态
+				if code != 0 {
+					task.Status.Status = TaskStatusFailed
+				} else {
+					if curStepIndex+1 == len(task.Spec.Steps) {
+						task.Status.Status = TaskStatusSucceeded
+					}
 				}
 
-			} else if status == string(TaskStepStatusPaused) {
-				log.Infof("task(%s).step(%d) is running but container(%s/%s) status is %s", task.Metadata.Name, curStepIndex, task.Spec.Host, containerID, status)
-
-				if err = cli.Unpauses(c.ctx.Context, containerID); err != nil {
-					log.Errorf("task(%s).step(%d) is running but but unpause container(%s/%s) failed, %s", task.Metadata.Name, curStepIndex, task.Spec.Host, containerID, err)
-				}
-			} else {
-
+				// TODO output的值何时更新
 			}
-
-			// TODO 如果最后一个容器已经结束则任务完成状态
+			goto updateTask
 		}
 
+	updateTask:
 		err = (&task).Update(db)
 		if err != nil {
 			log.Errorf("update task(%+v) failed, %s", task, err)
-			continue
 		}
 	}
 }
@@ -320,8 +374,15 @@ func (c *TaskController) createContainer(curStepIndex int, task *Task) error {
 	if err != nil {
 		return fmt.Errorf("create container(%s) failed, %s", name, err)
 	}
+	task.Status.Progress = fmt.Sprintf("%d/%d", curStepIndex, len(task.Spec.Input))
 	task.Status.Steps[curStepIndex].ContainerID = id
 	task.Status.Steps[curStepIndex].Status = TaskStepStatusCreating
+	task.Status.Steps[curStepIndex].Input = task.Spec.Input
+	if curStepIndex > 0 {
+		for k, v := range task.Status.Steps[curStepIndex-1].Input {
+			task.Status.Steps[curStepIndex].Input[k] = v
+		}
+	}
 
 	return nil
 }
