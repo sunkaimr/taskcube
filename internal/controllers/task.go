@@ -139,7 +139,7 @@ func (c *TaskController) PauseTask(ctx *gin.Context) {
 // @Failure				500			{object}	common.Response
 func (c *TaskController) UnpauseTask(ctx *gin.Context) {
 	req := &services.TaskService{}
-	req.Kind = types.TaskTemplateKind
+	req.Kind = types.TaskKind
 	req.Metadata.Name = ctx.Param("task")
 
 	code, err := req.UnpauseTask(ctx)
@@ -160,7 +160,7 @@ func (c *TaskController) UnpauseTask(ctx *gin.Context) {
 // @Failure				500			{object}	common.Response
 func (c *TaskController) StopTask(ctx *gin.Context) {
 	req := &services.TaskService{}
-	req.Kind = types.TaskTemplateKind
+	req.Kind = types.TaskKind
 	req.Metadata.Name = ctx.Param("task")
 
 	code, err := req.StopTask(ctx)
@@ -173,14 +173,23 @@ func (c *TaskController) StopTask(ctx *gin.Context) {
 }
 
 // TaskLogs				查看任务日志
-// @Router				/task/{task}/logs [get]
+// @Router				/task/{task}/step/{step}/logs [get]
 // @Description			查看任务日志
 // @Tags				任务
 // @Param				task		path		string	true	"task"
+// @Param				step		path		string	true	"step"
 // @Success				200			{object}	common.Response
 // @Failure				500			{object}	common.Response
 func (c *TaskController) TaskLogs(ctx *gin.Context) {
 	_, _ = common.ExtractContext(ctx)
+
+	task, step := ctx.Param("task"), ctx.Param("step")
+
+	req := &services.TaskService{}
+	req.Kind = types.TaskKind
+	req.Metadata.Name = task
+
+	req.TaskLogs(ctx, step)
 
 	//ctx.JSON(common.ServiceCode2HttpCode(code), common.Response{ServiceCode: code, Data: req})
 	return

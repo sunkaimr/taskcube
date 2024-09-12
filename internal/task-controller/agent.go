@@ -12,7 +12,7 @@ import (
 const (
 	AgentName       = "taskcube-agent"
 	AgentVolumeName = "taskcube-agent"
-	ExecPath        = "/agent/exec/"
+	ExecPath        = "/agent/exec"
 )
 
 func (c *TaskController) RunTaskCubeAgent() {
@@ -90,6 +90,7 @@ func (c *TaskController) createAgent() error {
 		}
 
 		// 判断agent容器不是Running状态则运行容器
+		// TODO 判断容器的镜像是否乣升级，升级需要先删除volume下的可执行文件
 		switch TaskStepStatusType(status) {
 		case TaskStepStatusCreated:
 			err = cli.Start(c.ctx.Context, containerID)

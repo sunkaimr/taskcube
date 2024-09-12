@@ -75,7 +75,7 @@ func Init(ctx *common.Context) *gin.Engine {
 		// 恢复任务
 		task.POST("/:task/unpause", new(ctl.TaskController).UnpauseTask)
 		// 查看任务日志
-		task.GET("/:task/logs", new(ctl.TaskController).TaskLogs)
+		task.GET("/:task/step/:step/logs", new(ctl.TaskController).TaskLogs)
 
 		// 上报任务执行结果
 		//task.PUT("/result", new(ctl.TaskController).UpdateTaskResult)

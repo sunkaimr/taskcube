@@ -8,6 +8,7 @@ import (
 )
 
 var ErrRecordExisted = errors.New("record existed")
+var ErrRecordNotExist = errors.New("record not exist")
 var ErrMultipleRecord = errors.New("multiple record found")
 
 type TaskStepStatusType string
@@ -53,7 +54,8 @@ const (
 type ScriptType string
 
 const (
-	ScriptTypeShell  ScriptType = "shell"
+	ScriptTypeBash   ScriptType = "bash"
+	ScriptTypeSh     ScriptType = "sh"
 	ScriptTypePython ScriptType = "python"
 )
 
@@ -402,6 +404,8 @@ type TaskSpecStep struct {
 type TaskStatusStep struct {
 	Name        string             `json:"name" yaml:"name"`
 	ContainerID string             `json:"containerID" yaml:"containerID"`
+	StartedAt   string             `json:"started_at" yaml:"started_at"`
+	FinishedAt  string             `json:"finished_at" yaml:"finished_at"`
 	Status      TaskStepStatusType `json:"status" yaml:"status"`
 	Message     string             `json:"message" yaml:"message"`
 	ExitCode    int                `json:"exitCode" yaml:"exitCode"`
@@ -432,7 +436,7 @@ func (c *Task) Get(db *gorm.DB) ([]Task, error) {
 			filter("kind", string(c.Kind)),
 			filter("name", c.Metadata.Name),
 			filter("version", c.Metadata.Version),
-			filter("status", string(c.Status.Status)),
+			//filter("status", string(c.Status.Status)),
 		).
 		Find(&res).Error
 	if err != nil {
@@ -460,7 +464,7 @@ func (c *Task) Exist(db *gorm.DB) (bool, error) {
 			filter("kind", string(c.Kind)),
 			filter("name", c.Metadata.Name),
 			filter("version", c.Metadata.Version),
-			filter("status", string(c.Status.Status)),
+			//filter("status", string(c.Status.Status)),
 		).
 		Find(&count).Error
 	if err != nil {
@@ -513,11 +517,15 @@ func (c *Task) Update(db *gorm.DB) error {
 			filter("kind", string(c.Kind)),
 			filter("name", c.Metadata.Name),
 			filter("version", c.Metadata.Version),
-			filter("status", string(c.Status.Status)),
+			//filter("status", string(c.Status.Status)),
 		).
 		Find(&res).Error
 	if err != nil {
 		return err
+	}
+
+	if len(res) == 0 {
+		return ErrRecordNotExist
 	}
 
 	if len(res) > 1 {

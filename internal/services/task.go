@@ -57,6 +57,7 @@ func (c *TaskService) CreateTask(ctx *gin.Context) (common.ServiceCode, error) {
 
 	c.Metadata.Version = utils.Ternary[string](c.Metadata.Version == "", common.GenerateVersion(), c.Metadata.Version)
 	c.Metadata.CreateAt = time.Now().Format(time.DateTime)
+	c.Status.Status = TaskStatusCreated
 	err = c.Create(db)
 	if err != nil {
 		log.Errorf("save model.TaskModel failed, %s", err)
@@ -324,5 +325,41 @@ func (c *TaskService) StopTask(ctx *gin.Context) (common.ServiceCode, error) {
 	}
 
 	log.Infof("stop task %s/%s", c.Kind, c.Metadata.Name)
+	return common.CodeOK, nil
+}
+
+func (c *TaskService) TaskLogs(ctx *gin.Context, step string) (common.ServiceCode, error) {
+	log, db := common.ExtractContext(ctx)
+
+	f := Task{
+		Kind:     TaskKind,
+		Metadata: TaskMetadata{Name: c.Metadata.Name},
+	}
+	res, err := f.Get(db)
+	if err != nil {
+		return common.CodeServerErr, err
+	} else if len(res) == 0 {
+		return common.CodeTaskNotExist, fmt.Errorf("%s/%s not exist", c.Kind, c.Metadata.Name)
+	}
+
+	containerID := ""
+	for _, s := range res[0].Status.Steps {
+		if s.Name != step {
+			continue
+		}
+
+		if s.ContainerID == "" {
+			return common.CodeTaskStepContainerIDErr, fmt.Errorf("%s/%s.Status.Steps[%s].ContainerID is null", c.Kind, c.Metadata.Name, step)
+		}
+
+		containerID = s.ContainerID
+		break
+	}
+
+	if containerID == "" {
+		return common.CodeTaskStepNotExist, fmt.Errorf("%s/%s.Status.Steps[%s] not exist", c.Kind, c.Metadata.Name, step)
+	}
+
+	log.Infof("get task logs %s/%s/%s", c.Kind, c.Metadata.Name, step)
 	return common.CodeOK, nil
 }

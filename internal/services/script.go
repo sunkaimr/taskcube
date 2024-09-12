@@ -24,9 +24,9 @@ func (c *ScriptService) CheckParameters(ctx *gin.Context) (bool, common.ServiceC
 
 	// 脚本类型校验
 	switch ScriptType(c.Metadata.Type) {
-	case ScriptTypeShell, ScriptTypePython:
+	case ScriptTypeBash, ScriptTypePython:
 	default:
-		return false, common.CodeScriptTypeErr, fmt.Errorf("unsupport type: %s, only support: %s,%s", c.Kind, ScriptTypeShell, ScriptTypePython)
+		return false, common.CodeScriptTypeErr, fmt.Errorf("unsupport type: %s, only support: %s,%s", c.Kind, ScriptTypeBash, ScriptTypePython)
 	}
 
 	// Name校验（不允许重名）
@@ -89,9 +89,9 @@ func (c *ScriptService) CheckUpdateParameters(ctx *gin.Context) (bool, common.Se
 
 	// 脚本类型校验
 	switch ScriptType(c.Metadata.Type) {
-	case ScriptTypeShell, ScriptTypePython:
+	case ScriptTypeBash, ScriptTypePython:
 	default:
-		return false, common.CodeScriptTypeErr, fmt.Errorf("unsupport type: %s, only support: %s,%s", c.Kind, ScriptTypeShell, ScriptTypePython)
+		return false, common.CodeScriptTypeErr, fmt.Errorf("unsupport type: %s, only support: %s,%s", c.Kind, ScriptTypeBash, ScriptTypePython)
 	}
 
 	// Name校验

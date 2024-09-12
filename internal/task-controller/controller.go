@@ -16,6 +16,7 @@ import (
 const (
 	ParaPrefix = "EXECUTE_PARA_"
 	ScriptName = "EXECUTE_SCRIPT_CONTENT"
+	OutputPath = "/agent/output"
 )
 
 type TaskController struct {
@@ -29,16 +30,15 @@ func NewTaskController(ctx *common.Context) *TaskController {
 	return &TaskController{
 		ctx:        ctx,
 		NodePool:   []string{"tcp://192.168.198.128:2375"},
-		AgentImage: "registry.cn-beijing.aliyuncs.com/data-loom/taskcube-agent",
+		AgentImage: "registry.cn-beijing.aliyuncs.com/data-loom/taskcube-agent:latest",
 		APIVersion: "1.41",
 	}
 }
 
 func (c *TaskController) Start() {
-
 	go c.RunTaskCubeAgent()
-	//go c.RunCreate()
-	//go c.RunTaskStepsLifeCycle()
+	go c.RunCreate()
+	go c.RunTaskStepsLifeCycle()
 
 	<-c.ctx.Context.Done()
 	c.ctx.Log.Info("shutdown TaskController")
@@ -56,6 +56,7 @@ func (c *TaskController) RunCreate() {
 			c.createHandler()
 		case <-c.ctx.Context.Done():
 			c.ctx.Log.Info("shutdown TaskController.RunCreate")
+			return
 		}
 	}
 }
@@ -65,13 +66,14 @@ func (c *TaskController) RunTaskStepsLifeCycle() {
 	c.ctx.Wg.Add(1)
 	defer c.ctx.Wg.Done()
 
-	tick := time.Tick(time.Second * 60)
+	tick := time.Tick(time.Second * 10)
 	for {
 		select {
 		case <-tick:
 			c.taskLifeCycleHandler()
 		case <-c.ctx.Context.Done():
 			c.ctx.Log.Info("shutdown TaskController.RunTaskStepsLifeCycle")
+			return
 		}
 	}
 }
@@ -132,7 +134,7 @@ func TaskStatusFilter(ctx *common.Context, status ...TaskStatusType) ([]Task, er
 	}
 
 	sort.Sort(TaskList(taskList))
-	return nil, nil
+	return taskList, nil
 }
 
 // taskStatusInit 初始化task.Status信息
@@ -140,9 +142,9 @@ func taskStatusInit(task *Task) {
 	task.Status.Status = TaskStatusCreated
 	task.Status.Message = ""
 	task.Status.Progress = fmt.Sprintf("0/%d", len(task.Spec.Steps))
-	task.Status.Steps = make([]TaskStatusStep, 0, len(task.Spec.Steps))
+	task.Status.Steps = make([]TaskStatusStep, len(task.Spec.Steps), len(task.Spec.Steps))
 
-	for i, _ := range task.Status.Steps {
+	for i, _ := range task.Spec.Steps {
 		task.Status.Steps[i].Name = task.Spec.Steps[i].Name
 		task.Status.Steps[i].ContainerID = ""
 		task.Status.Steps[i].Status = ""
@@ -155,7 +157,9 @@ func taskStatusInit(task *Task) {
 
 // scheduleTask 将任务调度到合适的节点上
 func scheduleTask(c *TaskController, task *Task) error {
+	// 初始化任务
 	taskStatusInit(task)
+
 	if len(c.NodePool) == 0 {
 		return fmt.Errorf("no nodes available")
 	}
@@ -204,13 +208,16 @@ func (c *TaskController) taskLifeCycleHandler() {
 
 			curStepIndex = findCurStepIndex(&task)
 			curContainerID = task.Status.Steps[curStepIndex].ContainerID
+
+			log.Infof("task(%s).step(%d) should be running create container(%s/%s) successed", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID)
+
 			goto updateTask
 		}
 
 		_, state, err = cli.State(c.ctx.Context, "id", curContainerID)
 		if err != nil {
 			if errors.Is(err, docker.ContainerNotExistError) {
-				log.Infof("task(%s).step(%d) has been terminated container(%s/%s) not exist", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID)
+				log.Warnf("task(%s).step(%d) has been terminated container(%s/%s) not exist", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID)
 			} else {
 				log.Errorf("task(%s).step(%d) has been terminated get container(%s/%s) state failed, %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, err)
 				continue
@@ -225,7 +232,7 @@ func (c *TaskController) taskLifeCycleHandler() {
 			if !errors.Is(err, docker.ContainerNotExistError) && state != string(TaskStepStatusExited) {
 				log.Infof("task(%s).step(%d) has been terminated but container(%s/%s) exist need delete", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID)
 
-				// TODO 更新steps[].message 任务被删除了
+				// 更新steps[].message 任务被删除了
 				if err = cli.Delete(c.ctx.Context, curContainerID); err != nil {
 					msg := fmt.Sprintf("task(%s).step(%d) has been terminated but delete container(%s/%s) failed, %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, err)
 					log.Error(err)
@@ -267,10 +274,15 @@ func (c *TaskController) taskLifeCycleHandler() {
 		}
 
 		if !task.Spec.Pause {
-			// TODO 确保容器处于运行状态
+			// 确保容器处于运行状态
 			switch TaskStepStatusType(state) {
+			case "":
+				msg := fmt.Sprintf("task(%s).step(%d) is running but container(%s/%s) not exist", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID)
+				log.Error(msg)
+				task.Status.Status = TaskStatusFailed
+				task.Status.Message = msg
 			case TaskStepStatusCreating, TaskStepStatusCreated, TaskStepStatusInitializing, TaskStepStatusRunning:
-				// TODO 更新 steps[].status
+				// 更新 steps[].status
 				task.Status.Steps[curStepIndex].Status = TaskStepStatusCreating
 				task.Status.Steps[curStepIndex].Message = fmt.Sprintf("task(%s).step(%d) should running container(%s/%s) state is %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, state)
 			case TaskStepStatusPaused:
@@ -284,7 +296,8 @@ func (c *TaskController) taskLifeCycleHandler() {
 					log.Infof("task(%s).step(%d) should running and unpause container(%s/%s) success", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID)
 				}
 			case TaskStepStatusExited:
-				// TODO 判断退出码
+				task.Status.Steps[curStepIndex].FinishedAt = time.Now().Format(time.RFC3339)
+				// 判断退出码
 				code, err := cli.ExitCode(c.ctx.Context, curContainerID)
 				if err != nil {
 					msg := fmt.Sprintf("task(%s).step(%d) is running but container(%s/%s) state is %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, state)
@@ -297,6 +310,17 @@ func (c *TaskController) taskLifeCycleHandler() {
 				task.Status.Steps[curStepIndex].Message = ""
 				log.Infof("task(%s).step(%d) should running but container(%s/%s) state is %s exit code is %d", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, state, code)
 
+				// output的值何时更新
+				out, err := cli.ReadFiles(c.ctx.Context, curContainerID, OutputPath)
+				if err != nil {
+					msg := fmt.Sprintf("task(%s).step(%d) is running but read container(%s/%s) output failed, %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, err)
+					log.Error(msg)
+					task.Status.Steps[curStepIndex].Message = msg
+					goto updateTask
+				}
+
+				task.Status.Steps[curStepIndex].Output = out
+
 				// 1，退出码非0 - 标记任务执行失败
 				// 2, 退出码为0
 				//    - 如果最后一个容器已经结束则任务完成状态
@@ -307,8 +331,6 @@ func (c *TaskController) taskLifeCycleHandler() {
 						task.Status.Status = TaskStatusSucceeded
 					}
 				}
-
-				// TODO output的值何时更新
 			}
 			goto updateTask
 		}
@@ -327,12 +349,16 @@ func findCurStepIndex(task *Task) int {
 		if step.Status == TaskStepStatusExited {
 			continue
 		} else {
-			curStep = i + 1
+			curStep = i
 			break
 		}
 	}
 
-	task.Status.Progress = fmt.Sprintf("%d/%d", curStep, totalStep)
+	if curStep >= len(task.Status.Steps) {
+		curStep = len(task.Status.Steps) - 1
+	}
+
+	task.Status.Progress = fmt.Sprintf("%d/%d", curStep+1, totalStep)
 	return curStep
 }
 
@@ -341,7 +367,7 @@ func (c *TaskController) createContainer(curStepIndex int, task *Task) error {
 	env := make([]string, 0, 10)
 	name := fmt.Sprintf("%s-%s-%s", task.Metadata.Name, task.Spec.Steps[curStepIndex].Name, utils.RandStr(5))
 
-	script, err := c.getScriptContent(&task.Spec.Steps[curStepIndex])
+	scriptType, script, err := c.getScriptContent(&task.Spec.Steps[curStepIndex])
 	if err != nil {
 		return fmt.Errorf("get %s script content failed, %s", name, err)
 	}
@@ -350,13 +376,15 @@ func (c *TaskController) createContainer(curStepIndex int, task *Task) error {
 		env = append(env, fmt.Sprintf("%s%s=%s", ParaPrefix, k, v))
 	}
 
+	_ = scriptType
+
 	cli, err := docker.New(&docker.ContainerOps{
 		ServerHost: task.Spec.Host,
 		APIVersion: c.APIVersion,
 		Name:       name,
 		Env:        env,
 		Image:      task.Spec.Steps[curStepIndex].Image,
-		Entrypoint: []string{fmt.Sprintf("%s/%s", ExecPath, ExecPath), "run"},
+		Entrypoint: []string{fmt.Sprintf("%s/%s", ExecPath, AgentName), "run", scriptType},
 		Mounts: []mount.Mount{
 			{
 				Type:     mount.TypeVolume,
@@ -374,10 +402,11 @@ func (c *TaskController) createContainer(curStepIndex int, task *Task) error {
 	if err != nil {
 		return fmt.Errorf("create container(%s) failed, %s", name, err)
 	}
-	task.Status.Progress = fmt.Sprintf("%d/%d", curStepIndex, len(task.Spec.Input))
+	task.Status.Progress = fmt.Sprintf("%d/%d", curStepIndex+1, len(task.Spec.Input))
 	task.Status.Steps[curStepIndex].ContainerID = id
 	task.Status.Steps[curStepIndex].Status = TaskStepStatusCreating
 	task.Status.Steps[curStepIndex].Input = task.Spec.Input
+	task.Status.Steps[curStepIndex].StartedAt = time.Now().Format(time.RFC3339)
 	if curStepIndex > 0 {
 		for k, v := range task.Status.Steps[curStepIndex-1].Input {
 			task.Status.Steps[curStepIndex].Input[k] = v
@@ -387,9 +416,9 @@ func (c *TaskController) createContainer(curStepIndex int, task *Task) error {
 	return nil
 }
 
-func (c *TaskController) getScriptContent(step *TaskSpecStep) (string, error) {
+func (c *TaskController) getScriptContent(step *TaskSpecStep) (string, string, error) {
 	if step.Source != "" {
-		return step.Source, nil
+		return string(ScriptTypeBash), step.Source, nil
 	}
 	f := Script{
 		Kind:     ScriptKind,
@@ -397,14 +426,14 @@ func (c *TaskController) getScriptContent(step *TaskSpecStep) (string, error) {
 	}
 	res, err := f.Get(c.ctx.DB)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	switch len(res) {
 	case 0:
-		return "", fmt.Errorf("%s/%s not exist", ScriptKind, step.Script)
+		return "", "", fmt.Errorf("%s/%s not exist", ScriptKind, step.Script)
 	case 1:
-		return res[0].Source, nil
+		return string(res[0].Metadata.Type), res[0].Source, nil
 	default:
 		sort.Slice(res, func(i, j int) bool {
 			if res[i].Metadata.Version > res[j].Metadata.Version {
@@ -412,6 +441,6 @@ func (c *TaskController) getScriptContent(step *TaskSpecStep) (string, error) {
 			}
 			return false
 		})
-		return res[0].Source, nil
+		return string(res[0].Metadata.Type), res[0].Source, nil
 	}
 }

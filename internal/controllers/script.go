@@ -67,7 +67,7 @@ func (c *ScriptController) UpdateScript(ctx *gin.Context) {
 // @Param   			pageSize			query		int     	false  	"pageSize"
 // @Param   			name				query		string     	false  	"name"
 // @Param   			version				query		string     	false  	"version"
-// @Param   			type				query		string     	false  	"Script type" Enums(shell,python)
+// @Param   			type				query		string     	false  	"Script type" Enums(bash, sh, python)
 // @Success				200					{object}	common.Response{data=[]services.ScriptService}
 // @Failure				500					{object}	common.Response
 func (c *ScriptController) QueryScript(ctx *gin.Context) {

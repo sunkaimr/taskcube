@@ -17,7 +17,7 @@ mysql:
   port: "30336"
   user: "root"
   password: "123456"
-  database: "test"
+  database: "taskcube"
 
 
 log:
