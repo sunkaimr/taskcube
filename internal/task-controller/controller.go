@@ -20,20 +20,45 @@ const (
 	OutputPath = "/agent/output"
 )
 
+type AgentStatusType int
+
+const (
+	AgentStatusUnknown     AgentStatusType = 0
+	AgentStatusNotReady    AgentStatusType = 1
+	AgentStatusReady       AgentStatusType = 2
+	AgentStatusUpdateCheck AgentStatusType = 3
+	AgentStatusUpdating    AgentStatusType = 4
+	AgentStatusUpdated     AgentStatusType = 5
+)
+
 type TaskController struct {
-	NodePool   []string // 节点池，从节点池选择节点用于容器调度
-	AgentImage string
-	APIVersion string // 1.41
-	ctx        *common.Context
+	NodePool    []string               // 节点池，从节点池选择节点用于容器调度
+	AgentImage  string                 // Agent容器镜像
+	AgentStatus map[string]AgentStatus // Agent容器状态 未就绪、就绪、升级中
+	APIVersion  string                 // 1.41
+	ctx         *common.Context
+}
+
+type AgentStatus struct {
+	Time   time.Time
+	Status AgentStatusType
+	Reason string
 }
 
 func NewTaskController(ctx *common.Context) *TaskController {
-	return &TaskController{
-		ctx:        ctx,
-		NodePool:   []string{"tcp://192.168.198.128:2375"},
-		AgentImage: "registry.cn-beijing.aliyuncs.com/data-loom/taskcube-agent:latest",
-		APIVersion: "1.41",
+	c := &TaskController{
+		ctx:         ctx,
+		NodePool:    []string{"tcp://192.168.198.128:2375"},
+		AgentImage:  "registry.cn-beijing.aliyuncs.com/data-loom/taskcube-agent:0.0.1",
+		APIVersion:  "1.41",
+		AgentStatus: make(map[string]AgentStatus),
 	}
+
+	for _, host := range c.NodePool {
+		c.setAgentStatus(host, AgentStatusUnknown, "")
+	}
+
+	return c
 }
 
 func (c *TaskController) Start() {
@@ -197,7 +222,7 @@ func (c *TaskController) taskLifeCycleHandler() {
 		cli, err := docker.New(&docker.ContainerOps{ServerHost: task.Spec.Host, APIVersion: c.APIVersion})
 		if err != nil {
 			log.Errorf("new docker client failed, %s", err)
-			return
+			continue
 		}
 
 		if curContainerID == "" {
@@ -205,7 +230,7 @@ func (c *TaskController) taskLifeCycleHandler() {
 			err = c.createContainer(curStepIndex, &task)
 			if err != nil {
 				log.Errorf("create container failed, %s", err)
-				return
+				continue
 			}
 
 			curStepIndex = findCurStepIndex(&task)
@@ -285,8 +310,8 @@ func (c *TaskController) taskLifeCycleHandler() {
 				task.Status.Message = msg
 			case TaskStepStatusCreating, TaskStepStatusCreated, TaskStepStatusInitializing, TaskStepStatusRunning:
 				// 更新 steps[].status
-				task.Status.Steps[curStepIndex].Status = TaskStepStatusCreating
-				task.Status.Steps[curStepIndex].Message = fmt.Sprintf("task(%s).step(%d) should running container(%s/%s) state is %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, state)
+				task.Status.Steps[curStepIndex].Status = TaskStepStatusType(state)
+				task.Status.Steps[curStepIndex].Message = fmt.Sprintf("task(%s).step(%d) should running and container(%s/%s) state is %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, state)
 			case TaskStepStatusPaused:
 				log.Infof("task(%s).step(%d) is running but container(%s/%s) state is %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, state)
 				if err = cli.Unpauses(c.ctx.Context, curContainerID); err != nil {
@@ -415,7 +440,12 @@ func (c *TaskController) createContainer(curStepIndex int, task *Task) error {
 	}
 
 	task.Status.Progress = fmt.Sprintf("%d/%d", curStepIndex+1, len(task.Spec.Input))
-	task.Status.Steps[curStepIndex].ContainerID = ""
+
+	if status, reason := c.getAgentStatus(task.Spec.Host); status != AgentStatusReady {
+		task.Status.Steps[curStepIndex].Message = reason
+		return fmt.Errorf(reason)
+	}
+
 	task.Status.Steps[curStepIndex].Status = TaskStepStatusCreating
 	task.Status.Steps[curStepIndex].Input = utils.CopyMap(task.Spec.Input, task.Spec.Steps[curStepIndex].Input)
 	task.Status.Steps[curStepIndex].StartedAt = time.Now().Format(time.RFC3339)
