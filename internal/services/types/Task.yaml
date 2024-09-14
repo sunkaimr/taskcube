@@ -1,51 +1,60 @@
-kind: Task
-metadata:
-  name: delete
-  createAt: "2024-08-01 12:00:00"
-  deleteAt: "2024-08-01 12:23:34"
-spec:
-  pause: false
-  terminate: false
-  host: 192.168.1.1:2375
-  input:
-    input:
-      - name: url
-        value: xxx
-  steps:
-    - name: step1
-      image: ubuntu:latest
-      script: bash-shell
-    - name: step2
-      image: ubuntu:latest
-      script: python-script
-    - name: step3
-      image: ubuntu:latest
-      source: |
-        echo "hello"
-status:
-  status: "Running"
-  message: ""
-  progress: "1/2"
-  steps:
-    - name: step1
-      containerID: avcxhwerdbffghjgh
-      status: "Exited"
-      message: ""
-      exitCode: 0
-      input:
-        - name: url
-          value: xxx
-      output:
-        - name: table
-          value: yyyy
-    - name: step2
-      containerID: avcxhwerdbffghjgh
-      status: ""
-      message: ""
-      exitCode: 0
-      input:
-        - name: url
-          value: xxx
-      output:
-        - name: table
-          value: yyyy
+Kind: Task
+Metadata:
+  Name: task2
+  Version: '20240911101828754'
+  CreateAt: '2024-09-12 10:53:52'
+Spec:
+  Pause: false
+  Terminate: false
+  Host: 'tcp://192.168.198.128:2375'
+  Input:
+    task_in: '123457890'
+  Output:
+    task_out_1: '{{Spec.Steps[0].Output.step1_out}}'
+    task_out_2: '{{Spec.Steps[1].Output.step2_out}}'
+  Steps:
+    - Name: step1
+      Image: 'registry.cn-beijing.aliyuncs.com/data-loom/taskcube-agent:latest'
+      Script: test
+      Input:
+        step1_in: 'xxxxx'
+      Output:
+        step1_out: ''
+    - Name: step2
+      Image: 'registry.cn-beijing.aliyuncs.com/data-loom/taskcube-agent:latest'
+      Script: test2
+      Input:
+        step2_in: '{{Spec.Steps[0].Output.step1_out}}'
+      Output:
+        step2_out: ''
+Status:
+  Status: Failed
+  Message: ''
+  Progress: 1/2
+  Input:
+    task_in: '123457890'
+  Output:
+    task_out_1: 'abc'
+    task_out_2: '123'
+  Steps:
+    - Name: step1
+      ContainerID: 4ccb1aab83559570737e5b9c5cc87951ce248b7f6e77cdf79114613e48bcaa9f
+      StartedAt: '2024-09-12T11:34:47+08:00'
+      FinishedAt: '2024-09-12T11:35:52+08:00'
+      Status: exited
+      Message: ''
+      ExitCode: 1
+      Input:
+        abcd: '123457890'
+        out: '321'
+      Output:
+        out: '321'
+    - Name: step2
+      ContainerID: ''
+      StartedAt: ''
+      FinishedAt: ''
+      Status: ''
+      Message: ''
+      ExitCode: 0
+      Input: null
+      Output: null

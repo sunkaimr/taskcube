@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/sunkaimr/taskcube/internal/pkg/common"
+	"github.com/sunkaimr/taskcube/internal/services"
 	. "github.com/sunkaimr/taskcube/internal/services/types"
 	"github.com/sunkaimr/taskcube/pkg/docker"
 	"github.com/sunkaimr/taskcube/pkg/utils"
@@ -49,7 +50,7 @@ func (c *TaskController) RunCreate() {
 	c.ctx.Wg.Add(1)
 	defer c.ctx.Wg.Done()
 
-	tick := time.Tick(time.Second * 10)
+	tick := time.Tick(time.Second * 3)
 	for {
 		select {
 		case <-tick:
@@ -66,7 +67,7 @@ func (c *TaskController) RunTaskStepsLifeCycle() {
 	c.ctx.Wg.Add(1)
 	defer c.ctx.Wg.Done()
 
-	tick := time.Tick(time.Second * 10)
+	tick := time.Tick(time.Second * 3)
 	for {
 		select {
 		case <-tick:
@@ -144,14 +145,15 @@ func taskStatusInit(task *Task) {
 	task.Status.Progress = fmt.Sprintf("0/%d", len(task.Spec.Steps))
 	task.Status.Steps = make([]TaskStatusStep, len(task.Spec.Steps), len(task.Spec.Steps))
 
+	setTaskStatusInput(task)
+
 	for i, _ := range task.Spec.Steps {
 		task.Status.Steps[i].Name = task.Spec.Steps[i].Name
 		task.Status.Steps[i].ContainerID = ""
 		task.Status.Steps[i].Status = ""
 		task.Status.Steps[i].Message = ""
 		task.Status.Steps[i].ExitCode = 0
-		task.Status.Steps[i].Input = task.Spec.Steps[i].Input
-		task.Status.Steps[i].Output = nil
+		task.Status.Steps[i].Input = utils.CopyMap(task.Spec.Steps[i].Input)
 	}
 }
 
@@ -296,41 +298,7 @@ func (c *TaskController) taskLifeCycleHandler() {
 					log.Infof("task(%s).step(%d) should running and unpause container(%s/%s) success", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID)
 				}
 			case TaskStepStatusExited:
-				task.Status.Steps[curStepIndex].FinishedAt = time.Now().Format(time.RFC3339)
-				// 判断退出码
-				code, err := cli.ExitCode(c.ctx.Context, curContainerID)
-				if err != nil {
-					msg := fmt.Sprintf("task(%s).step(%d) is running but container(%s/%s) state is %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, state)
-					log.Error(msg)
-					task.Status.Steps[curStepIndex].Message = msg
-					goto updateTask
-				}
-				task.Status.Steps[curStepIndex].Status = TaskStepStatusExited
-				task.Status.Steps[curStepIndex].ExitCode = code
-				task.Status.Steps[curStepIndex].Message = ""
-				log.Infof("task(%s).step(%d) should running but container(%s/%s) state is %s exit code is %d", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, state, code)
-
-				// output的值何时更新
-				out, err := cli.ReadFiles(c.ctx.Context, curContainerID, OutputPath)
-				if err != nil {
-					msg := fmt.Sprintf("task(%s).step(%d) is running but read container(%s/%s) output failed, %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, err)
-					log.Error(msg)
-					task.Status.Steps[curStepIndex].Message = msg
-					goto updateTask
-				}
-
-				task.Status.Steps[curStepIndex].Output = out
-
-				// 1，退出码非0 - 标记任务执行失败
-				// 2, 退出码为0
-				//    - 如果最后一个容器已经结束则任务完成状态
-				if code != 0 {
-					task.Status.Status = TaskStatusFailed
-				} else {
-					if curStepIndex+1 == len(task.Spec.Steps) {
-						task.Status.Status = TaskStatusSucceeded
-					}
-				}
+				c.setTaskStepResult(cli, curContainerID, state, curStepIndex, &task)
 			}
 			goto updateTask
 		}
@@ -341,6 +309,80 @@ func (c *TaskController) taskLifeCycleHandler() {
 			log.Errorf("update task(%+v) failed, %s", task, err)
 		}
 	}
+}
+
+func (c *TaskController) setTaskStepResult(cli *docker.Client, curContainerID string, state string, curStepIndex int, task *Task) {
+	log := c.ctx.Log
+
+	task.Status.Steps[curStepIndex].FinishedAt = time.Now().Format(time.RFC3339)
+	// 判断退出码
+	code, err := cli.ExitCode(c.ctx.Context, curContainerID)
+	if err != nil {
+		msg := fmt.Sprintf("task(%s).step(%d) is running but container(%s/%s) state is %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, state)
+		log.Error(msg)
+		task.Status.Steps[curStepIndex].Message = msg
+		return
+	}
+	task.Status.Steps[curStepIndex].Status = TaskStepStatusExited
+	task.Status.Steps[curStepIndex].ExitCode = code
+	task.Status.Steps[curStepIndex].Message = ""
+	log.Infof("task(%s).step(%d) should running but container(%s/%s) state is %s exit code is %d", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, state, code)
+
+	// 从容器中获取输出值
+	out, err := cli.ReadFiles(c.ctx.Context, curContainerID, OutputPath)
+	if err != nil {
+		msg := fmt.Sprintf("task(%s).step(%d) is running but read container(%s/%s) output failed, %s", task.Metadata.Name, curStepIndex, task.Spec.Host, curContainerID, err)
+		log.Error(msg)
+		task.Status.Steps[curStepIndex].Message = msg
+		return
+	}
+
+	// 将容器的输出值更新至task.Status.Steps[curStepIndex].Output中
+	for k, _ := range task.Spec.Steps[curStepIndex].Output {
+		if task.Status.Steps[curStepIndex].Output == nil {
+			task.Status.Steps[curStepIndex].Output = make(map[string]string)
+		}
+		task.Status.Steps[curStepIndex].Output[k] = out[k]
+	}
+
+	// 如果task.Spec.Output引用了task.Status.Steps[curStepIndex].Output中的值
+	// 此时task.Status.Steps[curStepIndex].Output已更新则可以更新task.Spec.Output中的值
+	setTaskStatusOutput(task)
+
+	if code != 0 {
+		task.Status.Status = TaskStatusFailed
+		return
+	}
+
+	if curStepIndex+1 == len(task.Spec.Steps) {
+		task.Status.Status = TaskStatusSucceeded
+		log.Infof("task(%s) has finished", task.Metadata.Name)
+	}
+	return
+}
+
+func setTaskStatusInput(task *Task) {
+	if task.Status.Input == nil {
+		task.Status.Input = make(map[string]string, len(task.Spec.Input))
+	}
+
+	for k, v := range task.Spec.Input {
+		task.Status.Input[k] = v
+	}
+
+	services.SetReferenceValue(task.Status.Input, task)
+}
+
+func setTaskStatusOutput(task *Task) {
+	if task.Status.Output == nil {
+		task.Status.Output = make(map[string]string, len(task.Spec.Output))
+
+		for k, v := range task.Spec.Output {
+			task.Status.Output[k] = v
+		}
+	}
+
+	services.SetReferenceValue(task.Status.Output, task)
 }
 
 func findCurStepIndex(task *Task) int {
@@ -371,12 +413,23 @@ func (c *TaskController) createContainer(curStepIndex int, task *Task) error {
 	if err != nil {
 		return fmt.Errorf("get %s script content failed, %s", name, err)
 	}
+
+	task.Status.Progress = fmt.Sprintf("%d/%d", curStepIndex+1, len(task.Spec.Input))
+	task.Status.Steps[curStepIndex].ContainerID = ""
+	task.Status.Steps[curStepIndex].Status = TaskStepStatusCreating
+	task.Status.Steps[curStepIndex].Input = utils.CopyMap(task.Spec.Input, task.Spec.Steps[curStepIndex].Input)
+	task.Status.Steps[curStepIndex].StartedAt = time.Now().Format(time.RFC3339)
+
+	services.SetReferenceValue(task.Status.Steps[curStepIndex].Input, task)
+
+	// 将Input参数通过环境变量注入容器
 	env = append(env, fmt.Sprintf("%s=%s", ScriptName, script))
 	for k, v := range task.Spec.Input {
 		env = append(env, fmt.Sprintf("%s%s=%s", ParaPrefix, k, v))
 	}
-
-	_ = scriptType
+	for k, v := range task.Status.Steps[curStepIndex].Input {
+		env = append(env, fmt.Sprintf("%s%s=%s", ParaPrefix, k, v))
+	}
 
 	cli, err := docker.New(&docker.ContainerOps{
 		ServerHost: task.Spec.Host,
@@ -402,16 +455,7 @@ func (c *TaskController) createContainer(curStepIndex int, task *Task) error {
 	if err != nil {
 		return fmt.Errorf("create container(%s) failed, %s", name, err)
 	}
-	task.Status.Progress = fmt.Sprintf("%d/%d", curStepIndex+1, len(task.Spec.Input))
 	task.Status.Steps[curStepIndex].ContainerID = id
-	task.Status.Steps[curStepIndex].Status = TaskStepStatusCreating
-	task.Status.Steps[curStepIndex].Input = task.Spec.Input
-	task.Status.Steps[curStepIndex].StartedAt = time.Now().Format(time.RFC3339)
-	if curStepIndex > 0 {
-		for k, v := range task.Status.Steps[curStepIndex-1].Input {
-			task.Status.Steps[curStepIndex].Input[k] = v
-		}
-	}
 
 	return nil
 }

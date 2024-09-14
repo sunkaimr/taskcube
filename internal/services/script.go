@@ -57,7 +57,7 @@ func (c *ScriptService) CreateScript(ctx *gin.Context) (common.ServiceCode, erro
 	}
 
 	c.Metadata.Version = common.GenerateVersion()
-	c.Metadata.CreateAt = time.Now().Format(time.DateTime)
+	c.Metadata.CreateAt = time.Now().Format(time.RFC3339)
 	err = c.Create(db)
 	if err != nil {
 		log.Errorf("save model.ScriptModel failed, %s", err)

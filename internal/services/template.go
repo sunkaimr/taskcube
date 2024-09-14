@@ -16,6 +16,81 @@ type TaskTemplateService struct {
 	TaskTemplate
 }
 
+func checkTaskTemplateSteps(db *gorm.DB, task *TaskTemplate) (common.ServiceCode, error) {
+	for i, step := range task.Spec.Steps {
+		// 名字不能为空
+		if step.Name == "" {
+			return common.CodeTaskTemplateStepNameEmpty, fmt.Errorf("TaskTemplate.Spec.Steps[%d].Name can not be empty", i)
+		}
+
+		// 镜像不能为空
+		if step.Image == "" {
+			return common.CodeTaskTemplateStepImageEmpty, fmt.Errorf("TaskTemplate.Spec.Steps[%d].Image can not be empty", i)
+		}
+
+		// 脚本不能为空
+		if step.Script == "" && step.Source == "" {
+			return common.CodeTaskTemplateScriptSourceEmpty, fmt.Errorf("TaskTemplate.Spec.Steps[%d].Script Task.Spec.Steps[%d].Source can not both empty", i, i)
+		} else if step.Script != "" && step.Source != "" {
+			// Script和Source同时存在以Source为主
+			task.Spec.Steps[i].Script = ""
+		} else if step.Script != "" {
+			// 校验Script必须存在
+			f := Script{
+				Kind:     ScriptKind,
+				Metadata: ScriptMetadata{Name: step.Script},
+			}
+			exist, err := f.Exist(db)
+			if err != nil {
+				return common.CodeServerErr, fmt.Errorf("query models.ScriptModel(%s/%s) failed, %s", f.Kind, f.Metadata.Name, err)
+			}
+			if !exist {
+				return common.CodeScriptNotExist, fmt.Errorf("models.ScriptModel(%s/%s) not exist", f.Kind, f.Metadata.Name)
+			}
+		}
+
+		// Input可以引用Task.Metadata 和 Task.Spec里的静态数据 {{Spec.Steps.2.Output.step2_out}}
+		// Input如果引用了其他的Task.Spec.Steps[].Output则其必须已事先声明且要符合逻辑先后顺序
+		for k, v := range step.Input {
+			if !IsReferenceValue(v) {
+				continue
+			}
+
+			if _, err := GetReferenceValue(v, task); err != nil {
+				return common.CodeTaskReferenceValueNotExist, fmt.Errorf("check TaskTemplate.Spec.Steps[%d].Input.%s reference value failed, %s", i, k, err)
+			}
+		}
+	}
+
+	return common.CodeOK, nil
+}
+
+func checkTaskTemplateInput(task *TaskTemplate) (common.ServiceCode, error) {
+	for k, v := range task.Spec.Input {
+		if !IsReferenceValue(v) {
+			continue
+		}
+
+		if _, err := GetReferenceValue(v, task); err != nil {
+			return common.CodeTaskReferenceValueNotExist, fmt.Errorf("check TaskTemplate.Spec.Input.%s reference value failed, %s", k, err)
+		}
+	}
+	return common.CodeOK, nil
+}
+
+func checkTaskTemplateOutput(task *TaskTemplate) (common.ServiceCode, error) {
+	for k, v := range task.Spec.Output {
+		if !IsReferenceValue(v) {
+			continue
+		}
+
+		if _, err := GetReferenceValue(v, task); err != nil {
+			return common.CodeTaskReferenceValueNotExist, fmt.Errorf("check TaskTemplate.Spec.Output.%s reference value failed, %s", k, err)
+		}
+	}
+	return common.CodeOK, nil
+}
+
 func (c *TaskTemplateService) CheckParameters(ctx *gin.Context) (bool, common.ServiceCode, error) {
 	_, db := common.ExtractContext(ctx)
 
@@ -38,47 +113,24 @@ func (c *TaskTemplateService) CheckParameters(ctx *gin.Context) (bool, common.Se
 		return false, common.CodeTaskTemplateExisted, fmt.Errorf("%s/%s existed", c.Kind, c.Metadata.Name)
 	}
 
-	// 校验script必须存在
-	for i, step := range c.Spec.Steps {
-		code, err := checkTaskStep(db, &step)
-		if err != nil {
-			return false, code, fmt.Errorf("spec.steps[%d] check failed, %s", i, err)
-		}
+	// 校验steps合法性
+	code, err := checkTaskTemplateSteps(db, &c.TaskTemplate)
+	if err != nil {
+		return false, code, fmt.Errorf("check TaskTemplate.Spec.Steps failed, %s", err)
+	}
+
+	// 校验Spec.Input 和 Spec.Output 合法性
+	code, err = checkTaskTemplateInput(&c.TaskTemplate)
+	if err != nil {
+		return false, code, fmt.Errorf("check TaskTemplate.Spec.Input failed, %s", err)
+	}
+
+	code, err = checkTaskTemplateOutput(&c.TaskTemplate)
+	if err != nil {
+		return false, code, fmt.Errorf("check TaskTemplate.Spec.Output failed, %s", err)
 	}
 
 	return true, common.CodeOK, nil
-}
-
-func checkTaskStep(db *gorm.DB, step *TaskSpecStep) (common.ServiceCode, error) {
-	if step.Name == "" {
-		return common.CodeTaskTemplateStepNameEmpty, fmt.Errorf("step.name can not be empty")
-	}
-
-	if step.Image == "" {
-		return common.CodeTaskTemplateStepImageEmpty, fmt.Errorf("step.image can not be empty")
-	}
-
-	if step.Script == "" && step.Source == "" {
-		return common.CodeTaskTemplateScriptSourceEmpty, fmt.Errorf("step.script and step.source can not both empty")
-	} else if step.Script != "" && step.Source != "" {
-		// Script和Source同时存在以Source为主
-		step.Script = ""
-	} else if step.Script != "" {
-		// 校验Script必须存在
-		f := Script{
-			Kind:     ScriptKind,
-			Metadata: ScriptMetadata{Name: step.Script},
-		}
-		exist, err := f.Exist(db)
-		if err != nil {
-			return common.CodeServerErr, fmt.Errorf("query models.ScriptModel(%s/%s) failed, %s", f.Kind, f.Metadata.Name, err)
-		}
-		if !exist {
-			return common.CodeScriptNotExist, fmt.Errorf("models.ScriptModel(%s/%s) not exist", f.Kind, f.Metadata.Name)
-		}
-	}
-
-	return common.CodeOK, nil
 }
 
 func (c *TaskTemplateService) CreateTaskTemplate(ctx *gin.Context) (common.ServiceCode, error) {
@@ -91,7 +143,7 @@ func (c *TaskTemplateService) CreateTaskTemplate(ctx *gin.Context) (common.Servi
 	}
 
 	c.Metadata.Version = common.GenerateVersion()
-	c.Metadata.CreateAt = time.Now().Format(time.DateTime)
+	c.Metadata.CreateAt = time.Now().Format(time.RFC3339)
 	err = c.Create(db)
 	if err != nil {
 		log.Errorf("save model.TaskTemplateModel failed, %s", err)
@@ -134,14 +186,22 @@ func (c *TaskTemplateService) CheckUpdateParameters(ctx *gin.Context) (bool, com
 		return false, common.CodeTaskTemplateNotExist, fmt.Errorf("%s/%s not exist", c.Metadata.Name, c.Metadata.Version)
 	}
 
-	// 校验script必须存在
-	for i, step := range c.Spec.Steps {
-		code, err := checkTaskStep(db, &step)
-		if err != nil {
-			return false, code, fmt.Errorf("spec.steps[%d] check failed, %s", i, err)
-		}
+	// 校验steps合法性
+	code, err := checkTaskTemplateSteps(db, &c.TaskTemplate)
+	if err != nil {
+		return false, code, fmt.Errorf("check TaskTemplate.Spec.Steps failed, %s", err)
 	}
 
+	// 校验Spec.Input 和 Spec.Output 合法性
+	code, err = checkTaskTemplateInput(&c.TaskTemplate)
+	if err != nil {
+		return false, code, fmt.Errorf("check TaskTemplate.Spec.Input failed, %s", err)
+	}
+
+	code, err = checkTaskTemplateOutput(&c.TaskTemplate)
+	if err != nil {
+		return false, code, fmt.Errorf("check TaskTemplate.Spec.Output failed, %s", err)
+	}
 	return true, common.CodeOK, nil
 }
 
@@ -155,7 +215,7 @@ func (c *TaskTemplateService) UpdateTaskTemplate(ctx *gin.Context) (common.Servi
 	}
 
 	c.Metadata.Version = common.GenerateVersion()
-	c.Metadata.CreateAt = time.Now().Format(time.DateTime)
+	c.Metadata.CreateAt = time.Now().Format(time.RFC3339)
 	err = c.Create(db)
 	if err != nil {
 		log.Errorf("save model.TaskTemplateModel(%s/%s) failed, %s", c.Metadata.Name, c.Metadata.Version, err)

@@ -362,3 +362,23 @@ func CountSubString(s string, separator string) int {
 	}
 	return count
 }
+
+func CopyMap[T any](ms ...map[string]T) map[string]T {
+	if len(ms) == 0 {
+		return nil
+	}
+
+	l := 0
+	for _, m := range ms {
+		l += len(m)
+	}
+	r := make(map[string]T, l)
+
+	for _, m := range ms {
+		for k, v := range m {
+			r[k] = v
+		}
+	}
+
+	return r
+}

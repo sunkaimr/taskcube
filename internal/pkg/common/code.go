@@ -36,11 +36,12 @@ var (
 
 // Task模块错误码范围: 4xx3xx - 5xx3xx
 var (
-	CodeTaskKindErr            = ServiceCode{4000301, "Kind必须是TaskTemplate"}
-	CodeTaskNameEmpty          = ServiceCode{4000302, "Task名字不能为空"}
-	CodeTaskImmutable          = ServiceCode{4000303, "当前状态的任务不支持该操作"}
-	CodeTaskNotExist           = ServiceCode{4040301, "Task不存在"}
-	CodeTaskStepNotExist       = ServiceCode{4040302, "Task.Step不存在"}
-	CodeTaskStepContainerIDErr = ServiceCode{4040302, "Task.Step.Container为空"}
-	CodeTaskExisted            = ServiceCode{4090301, "存在同名的Task"}
+	CodeTaskKindErr                = ServiceCode{4000301, "Kind必须是TaskTemplate"}
+	CodeTaskNameEmpty              = ServiceCode{4000302, "Task名字不能为空"}
+	CodeTaskImmutable              = ServiceCode{4000303, "当前状态的任务不支持该操作"}
+	CodeTaskReferenceValueNotExist = ServiceCode{4000304, "找不到引用的值"}
+	CodeTaskNotExist               = ServiceCode{4040301, "Task不存在"}
+	CodeTaskStepNotExist           = ServiceCode{4040302, "Task.Step不存在"}
+	CodeTaskStepContainerIDErr     = ServiceCode{4040302, "Task.Step.Container为空"}
+	CodeTaskExisted                = ServiceCode{4090301, "存在同名的Task"}
 )

@@ -60,16 +60,16 @@ const (
 )
 
 type Script struct {
-	Kind     KindType       `json:"kind" yaml:"kind"`
-	Metadata ScriptMetadata `json:"metadata" yaml:"metadata"`
-	Source   string         `json:"source" yaml:"source"`
+	Kind     KindType
+	Metadata ScriptMetadata
+	Source   string
 }
 
 type ScriptMetadata struct {
-	Name     string     `json:"name" yaml:"name"`
-	Version  string     `json:"version" yaml:"version"`
-	Type     ScriptType `json:"type" yaml:"type"`
-	CreateAt string     `json:"createAt,omitempty" yaml:"createAt,omitempty"`
+	Name     string
+	Version  string
+	Type     ScriptType
+	CreateAt string `json:"omitempty" yaml:"omitempty"`
 }
 
 type ScriptModel struct {
@@ -217,21 +217,22 @@ func (c ScriptList) Less(i, j int) bool {
 }
 
 type TaskTemplate struct {
-	Kind     KindType         `json:"kind" yaml:"kind"`
-	Metadata TaskMetadata     `json:"metadata" yaml:"metadata"`
-	Spec     TaskTemplateSpec `json:"spec" yaml:"spec"`
+	Kind     KindType
+	Metadata TaskMetadata
+	Spec     TaskTemplateSpec
 }
 
 type TaskTemplateSpec struct {
-	Input map[string]string `json:"input,omitempty" yaml:"input"`
-	Steps []TaskSpecStep    `json:"steps" yaml:"steps"`
+	Input  map[string]string `json:"Input,omitempty" yaml:"Input,omitempty"`
+	Output map[string]string `json:"Output,omitempty" yaml:"Output,omitempty"`
+	Steps  []TaskSpecStep
 }
 
 type TaskMetadata struct {
-	Name     string `json:"name" yaml:"name"`
-	Version  string `json:"version,omitempty" yaml:"version,omitempty"`
-	CreateAt string `json:"createAt,omitempty" yaml:"createAt,omitempty"`
-	DeleteAt string `json:"deleteAt,omitempty" yaml:"deleteAt,omitempty"`
+	Name     string
+	Version  string `json:"Version,omitempty" yaml:"Version,omitempty"`
+	CreateAt string `json:"CreateAt,omitempty" yaml:"CreateAt,omitempty"`
+	DeleteAt string `json:"DeleteAt,omitempty" yaml:"DeleteAt,omitempty"`
 }
 
 type TaskTemplateModel struct {
@@ -239,7 +240,6 @@ type TaskTemplateModel struct {
 	Kind    KindType `gorm:"type:varchar(64);not null;index:kind_idx;"`
 	Name    string   `gorm:"type:varchar(64);not null;index:name_idx;"`
 	Version string   `gorm:"type:varchar(64);index:version_idx;"`
-	Scripts string   `json:"scripts" yaml:"scripts"`
 	Data    string   `gorm:"type:longtext;not null;"`
 }
 
@@ -372,45 +372,49 @@ func (c TaskTemplateList) Less(i, j int) bool {
 }
 
 type Task struct {
-	Kind     KindType     `json:"kind" yaml:"kind"`
-	Metadata TaskMetadata `json:"metadata" yaml:"metadata"`
-	Spec     TaskSpec     `json:"spec" yaml:"spec"`
-	Status   TaskStatus   `json:"status,omitempty" yaml:"status,omitempty"`
+	Kind     KindType
+	Metadata TaskMetadata
+	Spec     TaskSpec
+	Status   TaskStatus `json:"Status,omitempty" yaml:"Status,omitempty"`
 }
 
 type TaskSpec struct {
-	Pause     bool              `json:"pause" yaml:"pause"`
-	Terminate bool              `json:"terminate" yaml:"terminate"`
-	Host      string            `json:"host" yaml:"host"`
-	Steps     []TaskSpecStep    `json:"steps" yaml:"steps"`
-	Input     map[string]string `json:"input" yaml:"input"`
+	Pause     bool
+	Terminate bool
+	Host      string
+	Steps     []TaskSpecStep
+	Input     map[string]string `json:"Input,omitempty" yaml:"Input,omitempty"`
+	Output    map[string]string `json:"Output,omitempty" yaml:"Output,omitempty"`
 }
 
 type TaskStatus struct {
-	Status   TaskStatusType   `json:"status,omitempty" yaml:"status,omitempty"`
-	Message  string           `json:"message,omitempty" yaml:"message,omitempty"`
-	Progress string           `json:"progress,omitempty" yaml:"progress,omitempty"`
-	Steps    []TaskStatusStep `json:"steps,omitempty" yaml:"steps,omitempty"`
+	Status   TaskStatusType
+	Message  string
+	Progress string
+	Steps    []TaskStatusStep  `json:"Steps,omitempty" yaml:"Steps,omitempty"`
+	Input    map[string]string `json:"Input,omitempty" yaml:"Input,omitempty"`
+	Output   map[string]string `json:"Output,omitempty" yaml:"Output,omitempty"`
 }
 
 type TaskSpecStep struct {
-	Name   string            `json:"name" yaml:"name"`
-	Image  string            `json:"image" yaml:"image"`
-	Script string            `json:"script,omitempty" yaml:"script,omitempty"`
-	Source string            `json:"source,omitempty" yaml:"source,omitempty"`
-	Input  map[string]string `json:"input,omitempty" yaml:"input,omitempty"`
+	Name   string
+	Image  string
+	Script string            `json:"Script,omitempty" yaml:"Script,omitempty"`
+	Source string            `json:"Source,omitempty" yaml:"Source,omitempty"`
+	Input  map[string]string `json:"Input,omitempty" yaml:"Input,omitempty"`
+	Output map[string]string `json:"Output,omitempty" yaml:"Output,omitempty"`
 }
 
 type TaskStatusStep struct {
-	Name        string             `json:"name" yaml:"name"`
-	ContainerID string             `json:"containerID" yaml:"containerID"`
-	StartedAt   string             `json:"started_at" yaml:"started_at"`
-	FinishedAt  string             `json:"finished_at" yaml:"finished_at"`
-	Status      TaskStepStatusType `json:"status" yaml:"status"`
-	Message     string             `json:"message" yaml:"message"`
-	ExitCode    int                `json:"exitCode" yaml:"exitCode"`
-	Input       map[string]string  `json:"input" yaml:"input"`
-	Output      map[string]string  `json:"output" yaml:"output"`
+	Name        string
+	ContainerID string
+	StartedAt   string
+	FinishedAt  string
+	Status      TaskStepStatusType
+	Message     string
+	ExitCode    int
+	Input       map[string]string `json:"Input,omitempty" yaml:"Input,omitempty"`
+	Output      map[string]string `json:"Output,omitempty" yaml:"Output,omitempty"`
 }
 
 type TaskModel struct {
